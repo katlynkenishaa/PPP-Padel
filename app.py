@@ -11,18 +11,56 @@ st.set_page_config(page_title="Padel Voucher Monitor", page_icon="🎾")
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
+# Create a variable in memory to hold the digits as they are typed
+if "entered_pin" not in st.session_state:
+    st.session_state["entered_pin"] = ""
+
+# Functions to handle button clicks
+def add_digit(digit):
+    if len(st.session_state["entered_pin"]) < 4:
+        st.session_state["entered_pin"] += str(digit)
+
+def clear_pin():
+    st.session_state["entered_pin"] = ""
+
 if not st.session_state["authenticated"]:
     st.title("🔒 Staff Login")
-    pin_input = st.text_input("Enter Staff PIN:", type="password")
     
-    if st.button("Login", type="primary"):
-        if pin_input == str(st.secrets["staff_pin"]):
-            st.session_state["authenticated"] = True
-            st.rerun() 
-        else:
-            st.error("Incorrect PIN. Please try again.")
-            
-    st.stop() # This stops the rest of the app from loading!
+    # Display the visual dots for the PIN
+    display_pin = "⚫ " * len(st.session_state["entered_pin"]) + "⚪ " * (4 - len(st.session_state["entered_pin"]))
+    st.markdown(f"<h2 style='text-align: center; letter-spacing: 10px;'>{display_pin}</h2>", unsafe_allow_html=True)
+    st.write("") # Small spacer
+    
+    # Create a centered 3x4 grid for the Numpad using columns
+    _, col1, col2, col3, _ = st.columns([1, 2, 2, 2, 1])
+    
+    with col1:
+        st.button("1", on_click=add_digit, args=("1",), use_container_width=True)
+        st.button("4", on_click=add_digit, args=("4",), use_container_width=True)
+        st.button("7", on_click=add_digit, args=("7",), use_container_width=True)
+        st.button("C", on_click=clear_pin, use_container_width=True) # Clear button
+        
+    with col2:
+        st.button("2", on_click=add_digit, args=("2",), use_container_width=True)
+        st.button("5", on_click=add_digit, args=("5",), use_container_width=True)
+        st.button("8", on_click=add_digit, args=("8",), use_container_width=True)
+        st.button("0", on_click=add_digit, args=("0",), use_container_width=True)
+        
+    with col3:
+        st.button("3", on_click=add_digit, args=("3",), use_container_width=True)
+        st.button("6", on_click=add_digit, args=("6",), use_container_width=True)
+        st.button("9", on_click=add_digit, args=("9",), use_container_width=True)
+        
+        # The OK/Login Button
+        if st.button("OK", type="primary", use_container_width=True):
+            if st.session_state["entered_pin"] == str(st.secrets["staff_pin"]):
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("Incorrect PIN. Please try again.")
+                st.session_state["entered_pin"] = "" # Auto-clears the pad on failure
+                
+    st.stop() # This stops the rest of the app from loading until unlocked!
 # --- END PIN LOGIN SCREEN ---
 
 # --- 🎾 MAIN APP (Only runs if authenticated) ---
