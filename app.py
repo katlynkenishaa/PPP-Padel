@@ -48,12 +48,17 @@ with tab1:
 with tab2:
     rec_id = st.text_input("Customer ID", key="rec_id")
     rec_name = st.text_input("Customer Name")
-    rec_voucher = st.text_input("Voucher Code (Optional)")
+    
+    # Replaced text_input with selectbox to create a dropdown
+    rec_voucher = st.selectbox("Voucher Code", ["Promo A", "Promo B", "No Promo"])
     
     if st.button("Save Visit to Google Sheets", type="primary"):
         if not rec_id or not rec_name:
             st.error("Please enter both Customer ID and Name.")
         else:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            sheet.append_row([str(rec_id).strip(), rec_name.strip(), str(rec_voucher).strip(), current_time])
+            # If they choose "No Promo", you can decide if you want to record that text or leave it blank
+            voucher_to_record = "" if rec_voucher == "No Promo" else rec_voucher
+            
+            sheet.append_row([str(rec_id).strip(), rec_name.strip(), voucher_to_record, current_time])
             st.success(f"✅ Recorded visit for {rec_name}!")
