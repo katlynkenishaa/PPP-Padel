@@ -26,10 +26,14 @@ def clear_pin():
 if not st.session_state["authenticated"]:
     st.title("🔒 Staff Login")
     
-    # Display the visual dots for the PIN
-    display_pin = "⚫ " * len(st.session_state["entered_pin"]) + "⚪ " * (4 - len(st.session_state["entered_pin"]))
-    st.markdown(f"<h2 style='text-align: center; letter-spacing: 10px;'>{display_pin}</h2>", unsafe_allow_html=True)
+    # --- CHANGED: Display actual numbers instead of black circles ---
+    entered_digits = st.session_state["entered_pin"]
+    # Join the typed numbers with spaces, then add the remaining white circles
+    display_pin = " ".join(entered_digits) + " " + "⚪ " * (4 - len(entered_digits))
+    
+    st.markdown(f"<h2 style='text-align: center; letter-spacing: 10px;'>{display_pin.strip()}</h2>", unsafe_allow_html=True)
     st.write("") # Small spacer
+    # ----------------------------------------------------------------
     
     # Create a centered 3x4 grid for the Numpad using columns
     _, col1, col2, col3, _ = st.columns([1, 2, 2, 2, 1])
