@@ -8,11 +8,9 @@ import json
 st.set_page_config(page_title="Padel Voucher Monitor", page_icon="🎾")
 
 # --- 🔒 PIN LOGIN SCREEN ---
-# Check if the user is already authenticated in this session
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
-# If not authenticated, show the login screen and stop the app
 if not st.session_state["authenticated"]:
     st.title("🔒 Staff Login")
     pin_input = st.text_input("Enter Staff PIN:", type="password")
@@ -20,11 +18,12 @@ if not st.session_state["authenticated"]:
     if st.button("Login", type="primary"):
         if pin_input == str(st.secrets["staff_pin"]):
             st.session_state["authenticated"] = True
-            st.rerun()  # Refresh the page to load the main app
+            st.rerun() 
         else:
             st.error("Incorrect PIN. Please try again.")
             
-    st.stop()  # This strictly prevents the code below from running
+    st.stop() # This stops the rest of the app from loading!
+# --- END PIN LOGIN SCREEN ---
 
 # --- 🎾 MAIN APP (Only runs if authenticated) ---
 st.title("🎾 Padel Court Voucher Monitor")
