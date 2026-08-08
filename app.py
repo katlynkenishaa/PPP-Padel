@@ -6,6 +6,27 @@ from datetime import datetime
 import json
 
 st.set_page_config(page_title="Padel Voucher Monitor", page_icon="🎾")
+
+# --- 🔒 PIN LOGIN SCREEN ---
+# Check if the user is already authenticated in this session
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+# If not authenticated, show the login screen and stop the app
+if not st.session_state["authenticated"]:
+    st.title("🔒 Staff Login")
+    pin_input = st.text_input("Enter Staff PIN:", type="password")
+    
+    if st.button("Login", type="primary"):
+        if pin_input == str(st.secrets["staff_pin"]):
+            st.session_state["authenticated"] = True
+            st.rerun()  # Refresh the page to load the main app
+        else:
+            st.error("Incorrect PIN. Please try again.")
+            
+    st.stop()  # This strictly prevents the code below from running
+
+# --- 🎾 MAIN APP (Only runs if authenticated) ---
 st.title("🎾 Padel Court Voucher Monitor")
 
 # Connect to Google Sheets securely using Streamlit Secrets
@@ -24,27 +45,24 @@ except Exception as e:
     st.error(f"Error connecting to the database: {e}")
     st.stop()
 
-# 1. Swapped the tab order so Record Visit is default (first)
+# Build the Web Interface Tabs
 tab1, tab2 = st.tabs(["📝 Record Visit", "🔍 Check Customer"])
 
 with tab1:
     rec_id = st.text_input("Customer ID", key="rec_id")
     rec_name = st.text_input("Customer Name")
     
-    rec_voucher = st.selectbox("Voucher Code", ["Promo GIIAS", "Promo Prasmul", "No Promo"])
+    rec_voucher = st.selectbox("Voucher Code", ["Promo A", "Promo B", "No Promo"])
     
     if st.button("Save Visit to Google Sheets", type="primary"):
         if not rec_id or not rec_name:
             st.error("Please enter both Customer ID and Name.")
         else:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            # This line now directly records exactly what is in the dropdown
             sheet.append_row([str(rec_id).strip(), rec_name.strip(), rec_voucher, current_time])
             st.success(f"✅ Recorded visit for {rec_name}!")
 
 with tab2:
-    # 2. Updated the label to only ask for Customer ID
     check_id = st.text_input("Enter Customer ID:")
     if st.button("Search", type="primary"):
         if not check_id:
