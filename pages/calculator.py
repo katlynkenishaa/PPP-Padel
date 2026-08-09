@@ -157,7 +157,7 @@ for c in range(1, num_courts + 1):
     with e_col:
         st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
 
-    # Per-court drilling controls directly under timing controls
+    # Per-court drilling controls
     c_drilling = st.toggle("Include Drilling?", key=drill_key)
     c_pax = 0
     if c_drilling:
@@ -256,10 +256,13 @@ with right_col:
             value=f"Rp{total_fee / total_drilling_pax:,.0f}"
         )
     else:
-        # Split table up to 12 Pax when drilling is NOT toggled
-        st.markdown("**Total Fee / Person**")
-        pax_split_data = [
-            {"Players": f"{p} Pax", "Fee / Person": f"Rp{total_fee / p:,.0f}"}
-            for p in range(1, 13)
-        ]
-        st.dataframe(pd.DataFrame(pax_split_data), hide_index=True, use_container_width=True)
+        selected_pax = st.selectbox(
+            "Select Number of Players",
+            options=list(range(1, 13)),
+            index=3,  # Defaults to 4 Pax
+            format_func=lambda x: f"{x} Pax"
+        )
+        st.metric(
+            label=f"Total Fee / Person ({selected_pax} Pax)",
+            value=f"Rp{total_fee / selected_pax:,.0f}"
+        )
