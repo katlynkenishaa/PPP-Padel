@@ -99,7 +99,7 @@ with tab_calc:
         drilling_pax = st.radio(
             "Number of Pax for Drilling:",
             options=[1, 2, 3, 4],
-            format_func=lambda x: f"{x} Pax (Rp{DRILLING_MAP[x]:,.0f})",
+            format_func=lambda x: f"{x} Pax",
             horizontal=True
         )
         drilling_fee = DRILLING_MAP[drilling_pax]
