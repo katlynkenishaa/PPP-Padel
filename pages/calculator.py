@@ -56,17 +56,17 @@ def get_hourly_rate(booking_datetime):
             return 0, "Closed"
 
 # --- BASE RATE CARD DISPLAY ---
-with st.expander("📊 View Base Pricing Rate Card", expanded=False):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("**Weekdays**")
-        st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
-    with col2:
-        st.markdown("**Weekend (Saturday & Sunday)**")
-        st.dataframe(pd.DataFrame(WEEKEND_RATES), hide_index=True, use_container_width=True)
-    with col3:
-        st.markdown("**Drilling Rates**")
-        st.dataframe(pd.DataFrame(DRILLING_RATES_LIST), hide_index=True, use_container_width=True)
+st.subheader("📊 Base Pricing Rate Card")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("**Weekdays**")
+    st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
+with col2:
+    st.markdown("**Weekend (Saturday & Sunday)**")
+    st.dataframe(pd.DataFrame(WEEKEND_RATES), hide_index=True, use_container_width=True)
+with col3:
+    st.markdown("**Drilling Rates**")
+    st.dataframe(pd.DataFrame(DRILLING_RATES_LIST), hide_index=True, use_container_width=True)
 
 # --- CALCULATOR FORM ---
 st.subheader("Court Booking Fee Calculator")
