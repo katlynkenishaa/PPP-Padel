@@ -21,10 +21,10 @@ WEEKEND_RATES = [
 ]
 
 DRILLING_RATES_LIST = [
-    {"Pax": "1 Pax", "Price / Hour": "Rp160,000"},
-    {"Pax": "2 Pax", "Price / Hour": "Rp190,000"},
-    {"Pax": "3 Pax", "Price / Hour": "Rp220,000"},
-    {"Pax": "4 Pax", "Price / Hour": "Rp250,000"},
+    {"Pax": "1 Pax", "Price / Hour": "Rp160,000", "Cost / Person / Hour": "Rp160,000"},
+    {"Pax": "2 Pax", "Price / Hour": "Rp190,000", "Cost / Person / Hour": "Rp95,000"},
+    {"Pax": "3 Pax", "Price / Hour": "Rp220,000", "Cost / Person / Hour": "Rp73,333"},
+    {"Pax": "4 Pax", "Price / Hour": "Rp250,000", "Cost / Person / Hour": "Rp62,500"},
 ]
 
 DRILLING_MAP = {1: 160000, 2: 190000, 3: 220000, 4: 250000}
@@ -58,7 +58,7 @@ def get_hourly_rate(booking_datetime):
 # --- BASE RATE CARD DISPLAY ---
 with st.container(border=True):
     st.markdown("📊 **View Base Pricing Rate Card**")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns([1, 1, 1.2])
     with col1:
         st.markdown("**Weekdays**")
         st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
@@ -145,6 +145,7 @@ include_drilling = st.toggle("Include Drilling?")
 
 drilling_fee = 0
 drilling_pax = 0
+per_person_drilling_rate = 0
 
 if include_drilling:
     drilling_pax = st.radio(
@@ -153,8 +154,9 @@ if include_drilling:
         format_func=lambda x: f"{x} Pax",
         horizontal=True
     )
-    drilling_hourly_rate = DRILLING_MAP[drilling_pax]
-    drilling_fee = drilling_hourly_rate * duration
+    total_drilling_hourly_rate = DRILLING_MAP[drilling_pax]
+    drilling_fee = total_drilling_hourly_rate * duration
+    per_person_drilling_rate = total_drilling_hourly_rate / drilling_pax
 
 # --- CALCULATION ---
 court_fee = 0
@@ -178,7 +180,7 @@ for h in range(duration):
 if include_drilling:
     breakdown.append({
         "Item": f"Add-on Fee ({duration} hr{'s' if duration > 1 else ''})",
-        "Category": f"Drilling ({drilling_pax} Pax @ Rp{DRILLING_MAP[drilling_pax]:,.0f}/hr)",
+        "Category": f"Drilling ({drilling_pax} Pax @ Rp{per_person_drilling_rate:,.0f}/person/hr)",
         "Rate": f"Rp{drilling_fee:,.0f}"
     })
 
@@ -207,13 +209,11 @@ with left_col:
 
 with right_col:
     if include_drilling:
-        # Single metric for the selected drilling pax
         st.metric(
             label=f"Total Fee / Person ({drilling_pax} Pax)",
             value=f"Rp{total_fee / drilling_pax:,.0f}"
         )
     else:
-        # Split table for 1–8 Pax when drilling is NOT toggled
         st.markdown("**Total Fee / Person**")
         pax_split_data = [
             {"Players": f"{p} Pax", "Fee / Person": f"Rp{total_fee / p:,.0f}"}
