@@ -78,7 +78,6 @@ selected_date = st.date_input("Select Date", value=date.today())
 # 2. Start Time Dropdown (06:00 to 23:00)
 time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
 
-# Callback when Start Time changes
 def on_start_time_change():
     start_h = int(st.session_state.start_time.split(":")[0])
     dur = st.session_state.get("play_duration", 1)
@@ -146,6 +145,8 @@ include_drilling = st.toggle("Include Drilling?")
 
 drilling_fee = 0
 drilling_pax = 0
+per_person_per_hr = 0
+per_person_total = 0
 
 if include_drilling:
     drilling_pax = st.radio(
@@ -156,6 +157,10 @@ if include_drilling:
     )
     drilling_hourly_rate = DRILLING_MAP[drilling_pax]
     drilling_fee = drilling_hourly_rate * duration
+    
+    # Calculate per person costs
+    per_person_per_hr = drilling_hourly_rate / drilling_pax
+    per_person_total = drilling_fee / drilling_pax
 
 # --- CALCULATION ---
 court_fee = 0
@@ -179,7 +184,7 @@ for h in range(duration):
 if include_drilling:
     breakdown.append({
         "Item": f"Add-on Fee ({duration} hr{'s' if duration > 1 else ''})",
-        "Category": f"Drilling ({drilling_pax} Pax @ Rp{DRILLING_MAP[drilling_pax]:,.0f}/hr)",
+        "Category": f"Drilling ({drilling_pax} Pax @ Rp{per_person_per_hr:,.0f}/pax/hr)",
         "Rate": f"Rp{drilling_fee:,.0f}"
     })
 
@@ -195,7 +200,7 @@ st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
 st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Courts'}")
 st.write(f"⏰ **Time:** {start_time_str} – {display_end_time} ({duration} hour{'s' if duration > 1 else ''})")
 if include_drilling:
-    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax for {duration} hr{'s' if duration > 1 else ''})")
+    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax for {duration} hr{'s' if duration > 1 else ''} — **Rp{per_person_total:,.0f} / person**)")
 
 # Breakdown Table
 st.table(breakdown)
