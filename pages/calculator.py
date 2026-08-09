@@ -199,16 +199,24 @@ if include_drilling:
 # Breakdown Table
 st.table(breakdown)
 
-# Total Fee & Per Person Split Table
+# Total Fee Display Logic
 left_col, right_col = st.columns([1, 1.2])
 
 with left_col:
     st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
 
 with right_col:
-    st.markdown("**Total Fee / Person**")
-    pax_split_data = [
-        {"Players": f"{p} Pax", "Fee / Person": f"Rp{total_fee / p:,.0f}"}
-        for p in range(1, 9)
-    ]
-    st.dataframe(pd.DataFrame(pax_split_data), hide_index=True, use_container_width=True)
+    if include_drilling:
+        # Single metric for the selected drilling pax
+        st.metric(
+            label=f"Total Fee / Person ({drilling_pax} Pax)",
+            value=f"Rp{total_fee / drilling_pax:,.0f}"
+        )
+    else:
+        # Split table for 1–8 Pax when drilling is NOT toggled
+        st.markdown("**Total Fee / Person**")
+        pax_split_data = [
+            {"Players": f"{p} Pax", "Fee / Person": f"Rp{total_fee / p:,.0f}"}
+            for p in range(1, 9)
+        ]
+        st.dataframe(pd.DataFrame(pax_split_data), hide_index=True, use_container_width=True)
