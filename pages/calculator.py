@@ -47,7 +47,6 @@ COACHING_MAP = {
 ALL_COACHES = ["Coach Randy", "Coach Brian", "Coach Eddy"]
 
 def get_hourly_rate(booking_datetime):
-    """Returns (price, category) for a single 1-hour slot starting at booking_datetime."""
     is_weekend = booking_datetime.weekday() in [5, 6]
     hour = booking_datetime.hour
 
@@ -113,7 +112,7 @@ def get_end_str(start_h, dur):
 
 time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
 
-# Helper overlap check
+# Check time overlaps between Court 1 and Court 2
 def check_time_overlap():
     if court_option == "2 Courts - Same Time":
         return True
@@ -132,183 +131,267 @@ def check_time_overlap():
 is_overlapping = check_time_overlap()
 
 court_configs = []
-num_forms = 2 if court_option == "2 Courts - Diff Time" else 1
 
-for c in range(1, num_forms + 1):
-    if court_option == "2 Courts - Diff Time":
-        st.markdown(f"#### 🏟️ Court {c} Configuration")
+if court_option == "2 Courts - Same Time":
+    # --- SAME TIME CONFIGURATION ---
+    s_col, d_col, e_col = st.columns(3)
     
-    start_key = f"c{c}_start_time"
-    dur_key = f"c{c}_play_duration"
-    end_key = f"c{c}_end_time"
-    drill_key = f"c{c}_include_drilling"
-    drill_pax_key = f"c{c}_drilling_pax"
-    coach_key = f"c{c}_include_coaching"
-    coach_name_key = f"c{c}_coach_name"
-    coach_pax_key = f"c{c}_coaching_pax"
-    reg_pax_key = f"c{c}_regular_pax"
-
-    if start_key not in st.session_state:
-        st.session_state[start_key] = "17:00"
-
-    start_h = int(st.session_state[start_key].split(":")[0])
+    if "c1_start_time" not in st.session_state:
+        st.session_state["c1_start_time"] = "17:00"
+    
+    start_h = int(st.session_state["c1_start_time"].split(":")[0])
     max_dur = 24 - start_h
     dur_opts = list(range(1, max_dur + 1))
     end_opts = [f"{h:02d}:00" for h in range(start_h + 1, 24)] + ["00:00"]
 
-    if dur_key not in st.session_state or st.session_state[dur_key] not in dur_opts:
-        st.session_state[dur_key] = 2 if c == 1 else (3 if num_forms > 1 else 2)
+    if "c1_play_duration" not in st.session_state or st.session_state["c1_play_duration"] not in dur_opts:
+        st.session_state["c1_play_duration"] = 2
 
-    if end_key not in st.session_state or st.session_state[end_key] not in end_opts:
-        st.session_state[end_key] = get_end_str(start_h, st.session_state[dur_key])
+    if "c1_end_time" not in st.session_state or st.session_state["c1_end_time"] not in end_opts:
+        st.session_state["c1_end_time"] = get_end_str(start_h, st.session_state["c1_play_duration"])
 
-    # Callbacks for time synchronization
-    def make_start_callback(c_num):
-        def cb():
-            sk = f"c{c_num}_start_time"
-            dk = f"c{c_num}_play_duration"
-            ek = f"c{c_num}_end_time"
-            sh = int(st.session_state[sk].split(":")[0])
-            dur = st.session_state.get(dk, 1)
-            st.session_state[ek] = get_end_str(sh, dur)
-        return cb
+    def cb_same_start():
+        sh = int(st.session_state["c1_start_time"].split(":")[0])
+        dur = st.session_state.get("c1_play_duration", 1)
+        st.session_state["c1_end_time"] = get_end_str(sh, dur)
 
-    def make_dur_callback(c_num):
-        def cb():
-            sk = f"c{c_num}_start_time"
-            dk = f"c{c_num}_play_duration"
-            ek = f"c{c_num}_end_time"
-            sh = int(st.session_state[sk].split(":")[0])
-            dur = st.session_state[dk]
-            st.session_state[ek] = get_end_str(sh, dur)
-        return cb
+    def cb_same_dur():
+        sh = int(st.session_state["c1_start_time"].split(":")[0])
+        dur = st.session_state["c1_play_duration"]
+        st.session_state["c1_end_time"] = get_end_str(sh, dur)
 
-    def make_end_callback(c_num):
-        def cb():
-            sk = f"c{c_num}_start_time"
-            dk = f"c{c_num}_play_duration"
-            ek = f"c{c_num}_end_time"
-            sh = int(st.session_state[sk].split(":")[0])
-            end_str = st.session_state[ek]
-            eh = 24 if end_str == "00:00" else int(end_str.split(":")[0])
-            st.session_state[dk] = eh - sh
-        return cb
+    def cb_same_end():
+        sh = int(st.session_state["c1_start_time"].split(":")[0])
+        end_str = st.session_state["c1_end_time"]
+        eh = 24 if end_str == "00:00" else int(end_str.split(":")[0])
+        st.session_state["c1_play_duration"] = eh - sh
 
-    # Mutual Exclusion Callbacks
-    def make_drill_toggle_cb(c_num):
-        def cb():
-            if st.session_state[f"c{c_num}_include_drilling"]:
-                st.session_state[f"c{c_num}_include_coaching"] = False
-        return cb
-
-    def make_coach_toggle_cb(c_num):
-        def cb():
-            if st.session_state[f"c{c_num}_include_coaching"]:
-                st.session_state[f"c{c_num}_include_drilling"] = False
-        return cb
-
-    # Time Controls
-    s_col, d_col, e_col = st.columns(3)
     with s_col:
-        st.selectbox("Start Time", time_options, key=start_key, on_change=make_start_callback(c))
+        st.selectbox("Start Time", time_options, key="c1_start_time", on_change=cb_same_start)
     with d_col:
-        st.selectbox("Play Duration", options=dur_opts, format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key=dur_key, on_change=make_dur_callback(c))
+        st.selectbox("Play Duration", options=dur_opts, format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key="c1_play_duration", on_change=cb_same_dur)
     with e_col:
-        st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
+        st.selectbox("End Time", options=end_opts, key="c1_end_time", on_change=cb_same_end)
 
-    # Drilling Controls
-    c_drilling = st.toggle(
-        "Include Drilling?",
-        key=drill_key,
-        disabled=st.session_state.get(coach_key, False),
-        on_change=make_drill_toggle_cb(c)
-    )
+    def cb_same_drill():
+        if st.session_state.get("c1_include_drilling"):
+            st.session_state["c1_include_coaching"] = False
+
+    def cb_same_coach():
+        if st.session_state.get("c1_include_coaching"):
+            st.session_state["c1_include_drilling"] = False
+
+    c_drilling = st.toggle("Include Drilling?", key="c1_include_drilling", disabled=st.session_state.get("c1_include_coaching", False), on_change=cb_same_drill)
+    drill_court_target = "Both Courts"
     c_drill_pax = 0
+
     if c_drilling:
-        c_drill_pax = st.radio(
-            "Number of Pax for Drilling:",
-            options=[1, 2, 3, 4],
-            format_func=lambda x: f"{x} Pax",
-            horizontal=True,
-            key=drill_pax_key
-        )
+        d_col1, d_col2 = st.columns(2)
+        with d_col1:
+            drill_court_target = st.radio("Apply Drilling To:", options=["Court 1 Only", "Court 2 Only", "Both Courts"], horizontal=True, key="same_drill_target")
+        with d_col2:
+            c_drill_pax = st.radio("Number of Pax for Drilling:", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="c1_drilling_pax")
 
-    # Coaching Controls
-    c_coaching = st.toggle(
-        "Include Coaching?",
-        key=coach_key,
-        disabled=st.session_state.get(drill_key, False),
-        on_change=make_coach_toggle_cb(c)
-    )
+    c_coaching = st.toggle("Include Coaching?", key="c1_include_coaching", disabled=st.session_state.get("c1_include_drilling", False), on_change=cb_same_coach)
+    coaching_assignments = {}
 
-    # Handle Coaching Inputs (Per Court if '2 Courts - Same Time')
-    court_coaching_assignments = []
     if c_coaching:
-        coaching_courts = [1, 2] if court_option == "2 Courts - Same Time" else [c]
+        st.markdown("**Court 1 Coaching**")
+        c1_col1, c1_col2 = st.columns(2)
+        with c1_col1:
+            c1_coach = st.selectbox("Select Coach (Court 1):", options=ALL_COACHES, key="same_c1_coach")
+        with c1_col2:
+            c1_pax = st.radio("Number of Pax for Coaching (Court 1):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c1_pax")
+
+        avail_c2 = [c for c in ALL_COACHES if c != c1_coach]
+        if st.session_state.get("same_c2_coach") not in avail_c2:
+            st.session_state["same_c2_coach"] = avail_c2[0]
+
+        st.markdown("**Court 2 Coaching**")
+        c2_col1, c2_col2 = st.columns(2)
+        with c2_col1:
+            c2_coach = st.selectbox("Select Coach (Court 2):", options=avail_c2, key="same_c2_coach")
+        with c2_col2:
+            c2_pax = st.radio("Number of Pax for Coaching (Court 2):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c2_pax")
+
+        coaching_assignments[1] = {"coach_name": c1_coach, "pax": c1_pax}
+        coaching_assignments[2] = {"coach_name": c2_coach, "pax": c2_pax}
+
+    # Non-drilling / non-coaching regular pax
+    reg_pax_c1 = 0
+    reg_pax_c2 = 0
+    if not c_drilling and not c_coaching:
+        reg_pax = st.radio("Number of Players per Court:", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_pax")
+        reg_pax_c1 = reg_pax
+        reg_pax_c2 = reg_pax
+    elif c_drilling and drill_court_target != "Both Courts":
+        target_court = 2 if drill_court_target == "Court 1 Only" else 1
+        other_reg_pax = st.radio(f"Number of Players on Court {target_court} (No Drilling):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_other_reg_pax")
+        if target_court == 1:
+            reg_pax_c1 = other_reg_pax
+        else:
+            reg_pax_c2 = other_reg_pax
+
+    dur_val = st.session_state["c1_play_duration"]
+    s_str = st.session_state["c1_start_time"]
+    e_str = st.session_state["c1_end_time"]
+
+    court_configs.append({
+        "court_num": 1,
+        "start_hour": start_h,
+        "duration": dur_val,
+        "start_str": s_str,
+        "end_str": e_str,
+        "include_drilling": c_drilling and (drill_court_target in ["Court 1 Only", "Both Courts"]),
+        "drilling_pax": c_drill_pax if (c_drilling and drill_court_target in ["Court 1 Only", "Both Courts"]) else 0,
+        "include_coaching": c_coaching,
+        "coach_name": coaching_assignments.get(1, {}).get("coach_name", ""),
+        "coaching_pax": coaching_assignments.get(1, {}).get("pax", 0),
+        "regular_pax": reg_pax_c1
+    })
+
+    court_configs.append({
+        "court_num": 2,
+        "start_hour": start_h,
+        "duration": dur_val,
+        "start_str": s_str,
+        "end_str": e_str,
+        "include_drilling": c_drilling and (drill_court_target in ["Court 2 Only", "Both Courts"]),
+        "drilling_pax": c_drill_pax if (c_drilling and drill_court_target in ["Court 2 Only", "Both Courts"]) else 0,
+        "include_coaching": c_coaching,
+        "coach_name": coaching_assignments.get(2, {}).get("coach_name", ""),
+        "coaching_pax": coaching_assignments.get(2, {}).get("pax", 0),
+        "regular_pax": reg_pax_c2
+    })
+
+else:
+    # --- 1 COURT or 2 COURTS - DIFF TIME CONFIGURATION ---
+    num_forms = 2 if court_option == "2 Courts - Diff Time" else 1
+
+    for c in range(1, num_forms + 1):
+        if court_option == "2 Courts - Diff Time":
+            st.markdown(f"#### 🏟️ Court {c} Configuration")
         
-        for cc in coaching_courts:
-            c_coach_name_key = f"c{cc}_coach_name"
-            c_coach_pax_key = f"c{cc}_coaching_pax"
-            
-            other_cc = 2 if cc == 1 else 1
-            other_coach_selected = st.session_state.get(f"c{other_cc}_coach_name", "")
+        start_key = f"c{c}_start_time"
+        dur_key = f"c{c}_play_duration"
+        end_key = f"c{c}_end_time"
+        drill_key = f"c{c}_include_drilling"
+        drill_pax_key = f"c{c}_drilling_pax"
+        coach_key = f"c{c}_include_coaching"
+        coach_name_key = f"c{c}_coach_name"
+        coach_pax_key = f"c{c}_coaching_pax"
+        reg_pax_key = f"c{c}_regular_pax"
 
+        if start_key not in st.session_state:
+            st.session_state[start_key] = "17:00"
+
+        start_h = int(st.session_state[start_key].split(":")[0])
+        max_dur = 24 - start_h
+        dur_opts = list(range(1, max_dur + 1))
+        end_opts = [f"{h:02d}:00" for h in range(start_h + 1, 24)] + ["00:00"]
+
+        if dur_key not in st.session_state or st.session_state[dur_key] not in dur_opts:
+            st.session_state[dur_key] = 2 if c == 1 else (3 if num_forms > 1 else 2)
+
+        if end_key not in st.session_state or st.session_state[end_key] not in end_opts:
+            st.session_state[end_key] = get_end_str(start_h, st.session_state[dur_key])
+
+        def make_start_callback(c_num):
+            def cb():
+                sk = f"c{c_num}_start_time"
+                dk = f"c{c_num}_play_duration"
+                ek = f"c{c_num}_end_time"
+                sh = int(st.session_state[sk].split(":")[0])
+                dur = st.session_state.get(dk, 1)
+                st.session_state[ek] = get_end_str(sh, dur)
+            return cb
+
+        def make_dur_callback(c_num):
+            def cb():
+                sk = f"c{c_num}_start_time"
+                dk = f"c{c_num}_play_duration"
+                ek = f"c{c_num}_end_time"
+                sh = int(st.session_state[sk].split(":")[0])
+                dur = st.session_state[dk]
+                st.session_state[ek] = get_end_str(sh, dur)
+            return cb
+
+        def make_end_callback(c_num):
+            def cb():
+                sk = f"c{c_num}_start_time"
+                dk = f"c{c_num}_play_duration"
+                ek = f"c{c_num}_end_time"
+                sh = int(st.session_state[sk].split(":")[0])
+                end_str = st.session_state[ek]
+                eh = 24 if end_str == "00:00" else int(end_str.split(":")[0])
+                st.session_state[dk] = eh - sh
+            return cb
+
+        def make_drill_toggle_cb(c_num):
+            def cb():
+                if st.session_state[f"c{c_num}_include_drilling"]:
+                    st.session_state[f"c{c_num}_include_coaching"] = False
+            return cb
+
+        def make_coach_toggle_cb(c_num):
+            def cb():
+                if st.session_state[f"c{c_num}_include_coaching"]:
+                    st.session_state[f"c{c_num}_include_drilling"] = False
+            return cb
+
+        s_col, d_col, e_col = st.columns(3)
+        with s_col:
+            st.selectbox("Start Time", time_options, key=start_key, on_change=make_start_callback(c))
+        with d_col:
+            st.selectbox("Play Duration", options=dur_opts, format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key=dur_key, on_change=make_dur_callback(c))
+        with e_col:
+            st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
+
+        c_drilling = st.toggle("Include Drilling?", key=drill_key, disabled=st.session_state.get(coach_key, False), on_change=make_drill_toggle_cb(c))
+        c_drill_pax = 0
+        if c_drilling:
+            c_drill_pax = st.radio("Number of Pax for Drilling:", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key=drill_pax_key)
+
+        c_coaching = st.toggle("Include Coaching?", key=coach_key, disabled=st.session_state.get(drill_key, False), on_change=make_coach_toggle_cb(c))
+        c_coach_name = ""
+        c_coach_pax = 0
+
+        if c_coaching:
             avail_coaches = ALL_COACHES.copy()
-            if (court_option == "2 Courts - Same Time" or is_overlapping) and len(coaching_courts) > 1:
-                if other_coach_selected in avail_coaches:
-                    avail_coaches.remove(other_coach_selected)
+            if court_option == "2 Courts - Diff Time":
+                other_court = 2 if c == 1 else 1
+                other_coaching = st.session_state.get(f"c{other_court}_include_coaching", False)
+                other_coach = st.session_state.get(f"c{other_court}_coach_name", "")
 
-            if c_coach_name_key in st.session_state and st.session_state[c_coach_name_key] not in avail_coaches:
-                st.session_state[c_coach_name_key] = avail_coaches[0]
+                if is_overlapping and other_coaching and other_coach in avail_coaches:
+                    avail_coaches.remove(other_coach)
 
-            if court_option == "2 Courts - Same Time":
-                st.markdown(f"**Court {cc} Coaching**")
+            if coach_name_key not in st.session_state or st.session_state[coach_name_key] not in avail_coaches:
+                st.session_state[coach_name_key] = avail_coaches[0]
 
             coach_col1, coach_col2 = st.columns(2)
             with coach_col1:
-                selected_coach = st.selectbox(
-                    "Select Coach:",
-                    options=avail_coaches,
-                    key=c_coach_name_key
-                )
+                c_coach_name = st.selectbox("Select Coach:", options=avail_coaches, key=coach_name_key)
             with coach_col2:
-                selected_pax = st.radio(
-                    "Number of Pax for Coaching:",
-                    options=[1, 2, 3, 4],
-                    format_func=lambda x: f"{x} Pax",
-                    horizontal=True,
-                    key=c_coach_pax_key
-                )
-            
-            court_coaching_assignments.append({
-                "court_num": cc,
-                "coach_name": selected_coach,
-                "coaching_pax": selected_pax
-            })
+                c_coach_pax = st.radio("Number of Pax for Coaching:", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key=coach_pax_key)
 
-    # Regular Players Controls
-    c_reg_pax = 0
-    if not c_drilling and not c_coaching:
-        c_reg_pax = st.radio(
-            "Number of Players on this Court:" if court_option == "2 Courts - Diff Time" else "Number of Players:",
-            options=[1, 2, 3, 4, 5, 6, 7, 8],
-            format_func=lambda x: f"{x} Pax",
-            horizontal=True,
-            key=reg_pax_key
-        )
+        c_reg_pax = 0
+        if not c_drilling and not c_coaching:
+            c_reg_pax = st.radio("Number of Players on this Court:" if court_option == "2 Courts - Diff Time" else "Number of Players:", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key=reg_pax_key)
 
-    court_configs.append({
-        "court_num": c,
-        "start_hour": int(st.session_state[start_key].split(":")[0]),
-        "duration": st.session_state[dur_key],
-        "start_str": st.session_state[start_key],
-        "end_str": st.session_state[end_key],
-        "include_drilling": c_drilling,
-        "drilling_pax": c_drill_pax,
-        "include_coaching": c_coaching,
-        "coaching_assignments": court_coaching_assignments,
-        "regular_pax": c_reg_pax
-    })
+        court_configs.append({
+            "court_num": c,
+            "start_hour": int(st.session_state[start_key].split(":")[0]),
+            "duration": st.session_state[dur_key],
+            "start_str": st.session_state[start_key],
+            "end_str": st.session_state[end_key],
+            "include_drilling": c_drilling,
+            "drilling_pax": c_drill_pax,
+            "include_coaching": c_coaching,
+            "coach_name": c_coach_name,
+            "coaching_pax": c_coach_pax,
+            "regular_pax": c_reg_pax
+        })
 
 # --- CALCULATION ---
 court_fee = 0
@@ -317,75 +400,62 @@ total_coaching_fee = 0
 total_pax = 0
 breakdown = []
 
-multiplier = 2 if court_option == "2 Courts - Same Time" else 1
-
 for cfg in court_configs:
     c_num = cfg["court_num"]
     s_h = cfg["start_hour"]
     dur = cfg["duration"]
     
-    # Calculate pax count
     if cfg["include_drilling"]:
-        total_pax += (cfg["drilling_pax"] * multiplier)
+        total_pax += cfg["drilling_pax"]
     elif cfg["include_coaching"]:
-        for ca in cfg["coaching_assignments"]:
-            total_pax += ca["coaching_pax"]
+        total_pax += cfg["coaching_pax"]
     else:
-        total_pax += (cfg["regular_pax"] * multiplier)
+        total_pax += cfg["regular_pax"]
 
-    # Calculate court hourly rates
+    # Calculate court time fee
     for h in range(dur):
         slot_dt = datetime.combine(selected_date, time(s_h + h, 0))
         rate_per_court, category = get_hourly_rate(slot_dt)
-        slot_total = rate_per_court * multiplier
-        court_fee += slot_total
+        court_fee += rate_per_court
         
         next_slot_str = "00:00" if (s_h + h + 1) == 24 else (slot_dt + timedelta(hours=1)).strftime('%H:%M')
-        
-        if court_option == "2 Courts - Same Time":
-            court_label = "Court Fee (2 Courts)"
-        elif court_option == "2 Courts - Diff Time":
-            court_label = f"Court {c_num} Fee"
-        else:
-            court_label = "Court Fee"
+        court_label = f"Court {c_num} Fee" if court_option != "1 Court" else "Court Fee"
         
         breakdown.append({
             "Item": f"{court_label} [{slot_dt.strftime('%H:%M')} – {next_slot_str}]",
             "Category": category,
-            "Rate": f"Rp{slot_total:,.0f}"
+            "Rate": f"Rp{rate_per_court:,.0f}"
         })
 
-    # Drilling Fee Calculation
+    # Calculate drilling fee
     if cfg["include_drilling"]:
         pax = cfg["drilling_pax"]
         drilling_hourly_rate = DRILLING_MAP[pax]
-        c_drilling_fee = drilling_hourly_rate * dur * multiplier
+        c_drilling_fee = drilling_hourly_rate * dur
         total_drilling_fee += c_drilling_fee
         per_person_rate = drilling_hourly_rate / pax
 
-        item_label = "Drilling Fee (2 Courts)" if court_option == "2 Courts - Same Time" else (f"Drilling Fee Court {c_num}" if court_option == "2 Courts - Diff Time" else "Drilling Fee")
+        item_label = f"Drilling Fee Court {c_num}" if court_option != "1 Court" else "Drilling Fee"
         breakdown.append({
             "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
             "Category": f"Drilling ({pax} Pax @ Rp{per_person_rate:,.0f}/person/hr)",
             "Rate": f"Rp{c_drilling_fee:,.0f}"
         })
 
-    # Coaching Fee Calculation
+    # Calculate coaching fee
     if cfg["include_coaching"]:
-        for ca in cfg["coaching_assignments"]:
-            cc_num = ca["court_num"]
-            pax = ca["coaching_pax"]
-            c_name = ca["coach_name"]
-            rate_per_pax_hr = COACHING_MAP[c_name][pax]
-            c_coaching_fee = rate_per_pax_hr * pax * dur
-            total_coaching_fee += c_coaching_fee
+        pax = cfg["coaching_pax"]
+        c_name = cfg["coach_name"]
+        rate_per_pax_hr = COACHING_MAP[c_name][pax]
+        c_coaching_fee = rate_per_pax_hr * pax * dur
+        total_coaching_fee += c_coaching_fee
 
-            item_label = f"Coaching Fee Court {cc_num}" if (court_option != "1 Court") else "Coaching Fee"
-            breakdown.append({
-                "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
-                "Category": f"{c_name} ({pax} Pax @ Rp{rate_per_pax_hr:,.0f}/person/hr)",
-                "Rate": f"Rp{c_coaching_fee:,.0f}"
-            })
+        item_label = f"Coaching Fee Court {c_num}" if court_option != "1 Court" else "Coaching Fee"
+        breakdown.append({
+            "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
+            "Category": f"{c_name} ({pax} Pax @ Rp{rate_per_pax_hr:,.0f}/person/hr)",
+            "Rate": f"Rp{c_coaching_fee:,.0f}"
+        })
 
 total_fee = court_fee + total_drilling_fee + total_coaching_fee
 
@@ -398,19 +468,17 @@ st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
 st.write(f"🏟️ **Courts:** {court_option}")
 
 for cfg in court_configs:
-    prefix = f"Court {cfg['court_num']}" if court_option == "2 Courts - Diff Time" else "Time"
+    prefix = f"Court {cfg['court_num']}" if court_option != "1 Court" else "Time"
     st.write(f"⏰ **{prefix}:** {cfg['start_str']} – {cfg['end_str']} ({cfg['duration']} hour{'s' if cfg['duration'] > 1 else ''})")
     if cfg["include_drilling"]:
-        dr_prefix = f"Court {cfg['court_num']} Drilling" if court_option == "2 Courts - Diff Time" else "Drilling"
+        dr_prefix = f"Court {cfg['court_num']} Drilling" if court_option != "1 Court" else "Drilling"
         st.write(f"🎾 **{dr_prefix}:** Yes ({cfg['drilling_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
     elif cfg["include_coaching"]:
-        for ca in cfg["coaching_assignments"]:
-            co_prefix = f"Court {ca['court_num']} Coaching" if court_option != "1 Court" else "Coaching"
-            st.write(f"🧢 **{co_prefix}:** {ca['coach_name']} ({ca['coaching_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
+        co_prefix = f"Court {cfg['court_num']} Coaching" if court_option != "1 Court" else "Coaching"
+        st.write(f"🧢 **{co_prefix}:** {cfg['coach_name']} ({cfg['coaching_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
     else:
-        pax_prefix = f"Court {cfg['court_num']} Players" if court_option == "2 Courts - Diff Time" else "Players"
-        pax_val = cfg['regular_pax'] * multiplier
-        st.write(f"👥 **{pax_prefix}:** {pax_val} Pax")
+        pax_prefix = f"Court {cfg['court_num']} Players" if court_option != "1 Court" else "Players"
+        st.write(f"👥 **{pax_prefix}:** {cfg['regular_pax']} Pax")
 
 # Breakdown Table
 st.table(breakdown)
@@ -424,5 +492,5 @@ with left_col:
 with right_col:
     st.metric(
         label=f"Total Fee / Person ({total_pax} Total Pax)",
-        value=f"Rp{total_fee / total_pax:,.0f}"
+        value=f"Rp{total_fee / total_pax:,.0f}" if total_pax > 0 else "Rp0"
     )
