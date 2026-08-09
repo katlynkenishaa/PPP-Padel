@@ -241,14 +241,14 @@ for c in range(1, num_courts + 1):
                 key=coach_pax_key
             )
 
-    # Regular court player count input if NO drilling or coaching is selected
+    # Regular court player count input as Radio Buttons (1–8 Pax)
     c_reg_pax = 0
     if not c_drilling and not c_coaching:
-        c_reg_pax = st.selectbox(
+        c_reg_pax = st.radio(
             "Number of Players on this Court:",
-            options=list(range(1, 9)),
-            index=3,  # Defaults to 4 Pax
+            options=[1, 2, 3, 4, 5, 6, 7, 8],
             format_func=lambda x: f"{x} Pax",
+            horizontal=True,
             key=reg_pax_key
         )
 
