@@ -82,28 +82,34 @@ time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
 def on_start_time_change():
     start_h = int(st.session_state.start_time.split(":")[0])
     dur = st.session_state.get("play_duration", 1)
-    st.session_state.end_time = f"{(start_h + dur):02d}:00"
+    end_h = start_h + dur
+    st.session_state.end_time = "00:00" if end_h == 24 else f"{end_h:02d}:00"
 
 start_time_str = st.selectbox("Start Time", time_options, key="start_time", on_change=on_start_time_change)
 start_hour = int(start_time_str.split(":")[0])
 
-# Initialize session states for Duration and End Time sync
-max_duration = min(5, 24 - start_hour)
+# Dynamic Options: End Time can go up to 24:00 (00:00)
+max_duration = 24 - start_hour
 duration_options = list(range(1, max_duration + 1))
-end_time_options = [f"{(start_hour + h):02d}:00" for h in range(1, max_duration + 1)]
+end_time_options = [f"{h:02d}:00" for h in range(start_hour + 1, 24)] + ["00:00"]
 
 if "play_duration" not in st.session_state or st.session_state.play_duration not in duration_options:
     st.session_state.play_duration = 1
 
+def end_str_from_dur(dur):
+    end_h = start_hour + dur
+    return "00:00" if end_h == 24 else f"{end_h:02d}:00"
+
 if "end_time" not in st.session_state or st.session_state.end_time not in end_time_options:
-    st.session_state.end_time = f"{(start_hour + st.session_state.play_duration):02d}:00"
+    st.session_state.end_time = end_str_from_dur(st.session_state.play_duration)
 
 # Sync Callbacks
 def update_from_duration():
-    st.session_state.end_time = f"{(start_hour + st.session_state.play_duration):02d}:00"
+    st.session_state.end_time = end_str_from_dur(st.session_state.play_duration)
 
 def update_from_end_time():
-    end_h = int(st.session_state.end_time.split(":")[0])
+    end_str = st.session_state.end_time
+    end_h = 24 if end_str == "00:00" else int(end_str.split(":")[0])
     st.session_state.play_duration = end_h - start_hour
 
 # 3. Side-by-Side Play Duration & End Time
@@ -161,8 +167,10 @@ for h in range(duration):
     court_fee += slot_total
     
     court_label = f"Court Fee ({num_courts} {'Court' if num_courts == 1 else 'Courts'})"
+    next_slot_str = "00:00" if (start_hour + h + 1) == 24 else (slot_dt + timedelta(hours=1)).strftime('%H:%M')
+    
     breakdown.append({
-        "Item": f"{court_label} [{slot_dt.strftime('%H:%M')} – {(slot_dt + timedelta(hours=1)).strftime('%H:%M')}]",
+        "Item": f"{court_label} [{slot_dt.strftime('%H:%M')} – {next_slot_str}]",
         "Category": category,
         "Rate": f"Rp{slot_total:,.0f}"
     })
@@ -175,7 +183,7 @@ if include_drilling:
     })
 
 total_fee = court_fee + drilling_fee
-end_dt = datetime.combine(selected_date, time(start_hour, 0)) + timedelta(hours=duration)
+display_end_time = end_str_from_dur(duration)
 
 # --- DIVIDER BEFORE SUMMARY ---
 st.divider()
@@ -184,7 +192,7 @@ st.divider()
 st.markdown("### 📋 Booking Summary")
 st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
 st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Courts'}")
-st.write(f"⏰ **Time:** {start_time_str} – {end_dt.strftime('%H:%M')} ({duration} hour{'s' if duration > 1 else ''})")
+st.write(f"⏰ **Time:** {start_time_str} – {display_end_time} ({duration} hour{'s' if duration > 1 else ''})")
 if include_drilling:
     st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax)")
 
