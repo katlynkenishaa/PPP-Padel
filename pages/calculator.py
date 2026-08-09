@@ -75,77 +75,103 @@ st.subheader("Court Booking Fee Calculator")
 # 1. Date Input
 selected_date = st.date_input("Select Date", value=date.today())
 
-# 2. Start Time Dropdown (06:00 to 23:00)
-time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
-
-def on_start_time_change():
-    start_h = int(st.session_state.start_time.split(":")[0])
-    dur = st.session_state.get("play_duration", 1)
-    end_h = start_h + dur
-    st.session_state.end_time = "00:00" if end_h == 24 else f"{end_h:02d}:00"
-
-start_time_str = st.selectbox("Start Time", time_options, key="start_time", on_change=on_start_time_change)
-start_hour = int(start_time_str.split(":")[0])
-
-# Dynamic Options: End Time can go up to 24:00 (00:00)
-max_duration = 24 - start_hour
-duration_options = list(range(1, max_duration + 1))
-end_time_options = [f"{h:02d}:00" for h in range(start_hour + 1, 24)] + ["00:00"]
-
-if "play_duration" not in st.session_state or st.session_state.play_duration not in duration_options:
-    st.session_state.play_duration = 1
-
-def end_str_from_dur(dur):
-    end_h = start_hour + dur
-    return "00:00" if end_h == 24 else f"{end_h:02d}:00"
-
-if "end_time" not in st.session_state or st.session_state.end_time not in end_time_options:
-    st.session_state.end_time = end_str_from_dur(st.session_state.play_duration)
-
-# Sync Callbacks for Duration & End Time
-def update_from_duration():
-    st.session_state.end_time = end_str_from_dur(st.session_state.play_duration)
-
-def update_from_end_time():
-    end_str = st.session_state.end_time
-    end_h = 24 if end_str == "00:00" else int(end_str.split(":")[0])
-    st.session_state.play_duration = end_h - start_hour
-
-# 3. Side-by-Side Play Duration & End Time
-dur_col, end_col = st.columns(2)
-
-with dur_col:
-    st.selectbox(
-        "Play Duration",
-        options=duration_options,
-        format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours",
-        key="play_duration",
-        on_change=update_from_duration
-    )
-
-with end_col:
-    st.selectbox(
-        "End Time",
-        options=end_time_options,
-        key="end_time",
-        on_change=update_from_end_time
-    )
-
-duration = st.session_state.play_duration
-
-# 4. Number of Courts Dropdown
+# 2. Number of Courts
 num_courts = st.selectbox(
     "Number of Courts",
     options=[1, 2],
     format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
 )
 
-# 5. Optional Drilling Toggle & Pax Selection
+# Helper function to compute end string
+def get_end_str(start_h, dur):
+    end_h = start_h + dur
+    return "00:00" if end_h == 24 else f"{end_h:02d}:00"
+
+# Time setup per court
+court_configs = []
+time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
+
+for c in range(1, num_courts + 1):
+    if num_courts > 1:
+        st.markdown(f"#### 🏟️ Court {c} Timing")
+    
+    start_key = f"c{c}_start_time"
+    dur_key = f"c{c}_play_duration"
+    end_key = f"c{c}_end_time"
+
+    # Default values initialization
+    if start_key not in st.session_state:
+        st.session_state[start_key] = "17:00" if c == 1 else "17:00"
+
+    start_h = int(st.session_state[start_key].split(":")[0])
+    max_dur = 24 - start_h
+    dur_opts = list(range(1, max_dur + 1))
+    end_opts = [f"{h:02d}:00" for h in range(start_h + 1, 24)] + ["00:00"]
+
+    if dur_key not in st.session_state or st.session_state[dur_key] not in dur_opts:
+        st.session_state[dur_key] = 2 if c == 1 else (3 if num_courts > 1 else 2)
+
+    if end_key not in st.session_state or st.session_state[end_key] not in end_opts:
+        st.session_state[end_key] = get_end_str(start_h, st.session_state[dur_key])
+
+    # Callbacks for synchronization
+    def make_start_callback(c_num):
+        def cb():
+            sk = f"c{c_num}_start_time"
+            dk = f"c{c_num}_play_duration"
+            ek = f"c{c_num}_end_time"
+            sh = int(st.session_state[sk].split(":")[0])
+            dur = st.session_state.get(dk, 1)
+            st.session_state[ek] = get_end_str(sh, dur)
+        return cb
+
+    def make_dur_callback(c_num):
+        def cb():
+            sk = f"c{c_num}_start_time"
+            dk = f"c{c_num}_play_duration"
+            ek = f"c{c_num}_end_time"
+            sh = int(st.session_state[sk].split(":")[0])
+            dur = st.session_state[dk]
+            st.session_state[ek] = get_end_str(sh, dur)
+        return cb
+
+    def make_end_callback(c_num):
+        def cb():
+            sk = f"c{c_num}_start_time"
+            dk = f"c{c_num}_play_duration"
+            ek = f"c{c_num}_end_time"
+            sh = int(st.session_state[sk].split(":")[0])
+            end_str = st.session_state[ek]
+            eh = 24 if end_str == "00:00" else int(end_str.split(":")[0])
+            st.session_state[dk] = eh - sh
+        return cb
+
+    # Render inputs
+    s_col, d_col, e_col = st.columns(3)
+    with s_col:
+        st.selectbox("Start Time", time_options, key=start_key, on_change=make_start_callback(c))
+    with d_col:
+        st.selectbox("Play Duration", options=dur_opts, format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key=dur_key, on_change=make_dur_callback(c))
+    with e_col:
+        st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
+
+    court_configs.append({
+        "court_num": c,
+        "start_hour": int(st.session_state[start_key].split(":")[0]),
+        "duration": st.session_state[dur_key],
+        "start_str": st.session_state[start_key],
+        "end_str": st.session_state[end_key]
+    })
+
+# 3. Optional Drilling Toggle & Pax Selection
 include_drilling = st.toggle("Include Drilling?")
 
 drilling_fee = 0
 drilling_pax = 0
 per_person_drilling_rate = 0
+
+# Determine total hours across courts for drilling calculation
+total_booking_hours = max([cfg["duration"] for cfg in court_configs])
 
 if include_drilling:
     drilling_pax = st.radio(
@@ -155,37 +181,40 @@ if include_drilling:
         horizontal=True
     )
     total_drilling_hourly_rate = DRILLING_MAP[drilling_pax]
-    drilling_fee = total_drilling_hourly_rate * duration
+    drilling_fee = total_drilling_hourly_rate * total_booking_hours
     per_person_drilling_rate = total_drilling_hourly_rate / drilling_pax
 
 # --- CALCULATION ---
 court_fee = 0
 breakdown = []
 
-for h in range(duration):
-    slot_dt = datetime.combine(selected_date, time(start_hour + h, 0))
-    rate_per_court, category = get_hourly_rate(slot_dt)
-    slot_total = rate_per_court * num_courts
-    court_fee += slot_total
+for cfg in court_configs:
+    c_num = cfg["court_num"]
+    s_h = cfg["start_hour"]
+    dur = cfg["duration"]
     
-    court_label = f"Court Fee ({num_courts} {'Court' if num_courts == 1 else 'Courts'})"
-    next_slot_str = "00:00" if (start_hour + h + 1) == 24 else (slot_dt + timedelta(hours=1)).strftime('%H:%M')
-    
-    breakdown.append({
-        "Item": f"{court_label} [{slot_dt.strftime('%H:%M')} – {next_slot_str}]",
-        "Category": category,
-        "Rate": f"Rp{slot_total:,.0f}"
-    })
+    for h in range(dur):
+        slot_dt = datetime.combine(selected_date, time(s_h + h, 0))
+        rate, category = get_hourly_rate(slot_dt)
+        court_fee += rate
+        
+        next_slot_str = "00:00" if (s_h + h + 1) == 24 else (slot_dt + timedelta(hours=1)).strftime('%H:%M')
+        court_label = f"Court {c_num} Fee" if num_courts > 1 else "Court Fee"
+        
+        breakdown.append({
+            "Item": f"{court_label} [{slot_dt.strftime('%H:%M')} – {next_slot_str}]",
+            "Category": category,
+            "Rate": f"Rp{rate:,.0f}"
+        })
 
 if include_drilling:
     breakdown.append({
-        "Item": f"Add-on Fee ({duration} hr{'s' if duration > 1 else ''})",
+        "Item": f"Add-on Fee ({total_booking_hours} hr{'s' if total_booking_hours > 1 else ''})",
         "Category": f"Drilling ({drilling_pax} Pax @ Rp{per_person_drilling_rate:,.0f}/person/hr)",
         "Rate": f"Rp{drilling_fee:,.0f}"
     })
 
 total_fee = court_fee + drilling_fee
-display_end_time = end_str_from_dur(duration)
 
 # --- DIVIDER BEFORE SUMMARY ---
 st.divider()
@@ -194,9 +223,13 @@ st.divider()
 st.markdown("### 📋 Booking Summary")
 st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
 st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Courts'}")
-st.write(f"⏰ **Time:** {start_time_str} – {display_end_time} ({duration} hour{'s' if duration > 1 else ''})")
+
+for cfg in court_configs:
+    prefix = f"Court {cfg['court_num']}" if num_courts > 1 else "Time"
+    st.write(f"⏰ **{prefix}:** {cfg['start_str']} – {cfg['end_str']} ({cfg['duration']} hour{'s' if cfg['duration'] > 1 else ''})")
+
 if include_drilling:
-    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax for {duration} hr{'s' if duration > 1 else ''})")
+    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax for {total_booking_hours} hr{'s' if total_booking_hours > 1 else ''})")
 
 # Breakdown Table
 st.table(breakdown)
