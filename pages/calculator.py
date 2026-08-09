@@ -107,10 +107,18 @@ court_option = st.selectbox(
 )
 
 def get_end_str(start_h, dur):
-    end_h = start_h + dur
-    return "00:00" if end_h == 24 else f"{end_h:02d}:00"
+    end_h = (start_h + dur) % 24
+    return "00:00" if end_h == 0 else f"{end_h:02d}:00"
 
 time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
+# Full 24-hour end options without truncation
+end_time_options = [f"{hour:02d}:00" for hour in range(1, 24)] + ["00:00"]
+
+def compute_duration(start_str, end_str):
+    sh = int(start_str.split(":")[0])
+    eh = 24 if end_str == "00:00" else int(end_str.split(":")[0])
+    dur = eh - sh
+    return dur if dur > 0 else dur + 24
 
 # Check time overlaps between Court 1 and Court 2
 def check_time_overlap():
@@ -138,16 +146,12 @@ if court_option == "2 Courts - Same Time":
     
     if "c1_start_time" not in st.session_state:
         st.session_state["c1_start_time"] = "17:00"
-    
-    start_h = int(st.session_state["c1_start_time"].split(":")[0])
-    max_dur = 24 - start_h
-    dur_opts = list(range(1, max_dur + 1))
-    end_opts = [f"{h:02d}:00" for h in range(start_h + 1, 24)] + ["00:00"]
 
-    if "c1_play_duration" not in st.session_state or st.session_state["c1_play_duration"] not in dur_opts:
+    if "c1_play_duration" not in st.session_state:
         st.session_state["c1_play_duration"] = 2
 
-    if "c1_end_time" not in st.session_state or st.session_state["c1_end_time"] not in end_opts:
+    if "c1_end_time" not in st.session_state:
+        start_h = int(st.session_state["c1_start_time"].split(":")[0])
         st.session_state["c1_end_time"] = get_end_str(start_h, st.session_state["c1_play_duration"])
 
     def cb_same_start():
@@ -161,17 +165,17 @@ if court_option == "2 Courts - Same Time":
         st.session_state["c1_end_time"] = get_end_str(sh, dur)
 
     def cb_same_end():
-        sh = int(st.session_state["c1_start_time"].split(":")[0])
-        end_str = st.session_state["c1_end_time"]
-        eh = 24 if end_str == "00:00" else int(end_str.split(":")[0])
-        st.session_state["c1_play_duration"] = eh - sh
+        st.session_state["c1_play_duration"] = compute_duration(
+            st.session_state["c1_start_time"], 
+            st.session_state["c1_end_time"]
+        )
 
     with s_col:
         st.selectbox("Start Time", time_options, key="c1_start_time", on_change=cb_same_start)
     with d_col:
-        st.selectbox("Play Duration", options=dur_opts, format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key="c1_play_duration", on_change=cb_same_dur)
+        st.selectbox("Play Duration", options=list(range(1, 25)), format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key="c1_play_duration", on_change=cb_same_dur)
     with e_col:
-        st.selectbox("End Time", options=end_opts, key="c1_end_time", on_change=cb_same_end)
+        st.selectbox("End Time", options=end_time_options, key="c1_end_time", on_change=cb_same_end)
 
     def cb_same_drill():
         if st.session_state.get("c1_include_drilling"):
@@ -248,16 +252,15 @@ if court_option == "2 Courts - Same Time":
         reg_pax_c1 = reg_pax
         reg_pax_c2 = reg_pax
     else:
-        # Check Court 1 needs regular pax input
         c1_has_addon = (c_drilling and drill_court_target in ["Court 1 Only", "Both Courts"]) or (c_coaching and coach_court_target in ["Court 1 Only", "Both Courts"])
         if not c1_has_addon:
             reg_pax_c1 = st.radio("Number of Players on Court 1 (No Add-on):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_c1_pax")
 
-        # Check Court 2 needs regular pax input
         c2_has_addon = (c_drilling and drill_court_target in ["Court 2 Only", "Both Courts"]) or (c_coaching and coach_court_target in ["Court 2 Only", "Both Courts"])
         if not c2_has_addon:
             reg_pax_c2 = st.radio("Number of Players on Court 2 (No Add-on):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_c2_pax")
 
+    start_h = int(st.session_state["c1_start_time"].split(":")[0])
     dur_val = st.session_state["c1_play_duration"]
     s_str = st.session_state["c1_start_time"]
     e_str = st.session_state["c1_end_time"]
@@ -311,15 +314,11 @@ else:
         if start_key not in st.session_state:
             st.session_state[start_key] = "17:00"
 
-        start_h = int(st.session_state[start_key].split(":")[0])
-        max_dur = 24 - start_h
-        dur_opts = list(range(1, max_dur + 1))
-        end_opts = [f"{h:02d}:00" for h in range(start_h + 1, 24)] + ["00:00"]
-
-        if dur_key not in st.session_state or st.session_state[dur_key] not in dur_opts:
+        if dur_key not in st.session_state:
             st.session_state[dur_key] = 2 if c == 1 else (3 if num_forms > 1 else 2)
 
-        if end_key not in st.session_state or st.session_state[end_key] not in end_opts:
+        if end_key not in st.session_state:
+            start_h = int(st.session_state[start_key].split(":")[0])
             st.session_state[end_key] = get_end_str(start_h, st.session_state[dur_key])
 
         def make_start_callback(c_num):
@@ -347,10 +346,10 @@ else:
                 sk = f"c{c_num}_start_time"
                 dk = f"c{c_num}_play_duration"
                 ek = f"c{c_num}_end_time"
-                sh = int(st.session_state[sk].split(":")[0])
-                end_str = st.session_state[ek]
-                eh = 24 if end_str == "00:00" else int(end_str.split(":")[0])
-                st.session_state[dk] = eh - sh
+                st.session_state[dk] = compute_duration(
+                    st.session_state[sk], 
+                    st.session_state[ek]
+                )
             return cb
 
         def make_drill_toggle_cb(c_num):
@@ -369,9 +368,9 @@ else:
         with s_col:
             st.selectbox("Start Time", time_options, key=start_key, on_change=make_start_callback(c))
         with d_col:
-            st.selectbox("Play Duration", options=dur_opts, format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key=dur_key, on_change=make_dur_callback(c))
+            st.selectbox("Play Duration", options=list(range(1, 25)), format_func=lambda x: f"{x} hr" if x == 1 else f"{x} hrs", key=dur_key, on_change=make_dur_callback(c))
         with e_col:
-            st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
+            st.selectbox("End Time", options=end_time_options, key=end_key, on_change=make_end_callback(c))
 
         c_drilling = st.toggle("Include Drilling?", key=drill_key, disabled=st.session_state.get(coach_key, False), on_change=make_drill_toggle_cb(c))
         c_drill_pax = 0
@@ -438,13 +437,13 @@ for cfg in court_configs:
     else:
         total_pax += cfg["regular_pax"]
 
-    # Calculate court time fee
+    # Calculate court time fee across all hours
     for h in range(dur):
-        slot_dt = datetime.combine(selected_date, time(s_h + h, 0))
+        slot_dt = datetime.combine(selected_date, time((s_h + h) % 24, 0)) + timedelta(days=(s_h + h) // 24)
         rate_per_court, category = get_hourly_rate(slot_dt)
         court_fee += rate_per_court
         
-        next_slot_str = "00:00" if (s_h + h + 1) == 24 else (slot_dt + timedelta(hours=1)).strftime('%H:%M')
+        next_slot_str = (slot_dt + timedelta(hours=1)).strftime('%H:%M')
         court_label = f"Court {c_num} Fee" if court_option != "1 Court" else "Court Fee"
         
         breakdown.append({
