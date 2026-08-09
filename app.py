@@ -20,6 +20,13 @@ WEEKEND_RATES = [
     {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp199,000", "Category": "Late Night"}
 ]
 
+DRILLING_RATES = {
+    1: 160000,
+    2: 190000,
+    3: 220000,
+    4: 250000
+}
+
 def get_hourly_rate(booking_datetime):
     """Returns (price, category) for a single 1-hour slot starting at booking_datetime."""
     is_weekend = booking_datetime.weekday() in [5, 6]  # 5 = Saturday, 6 = Sunday
@@ -58,7 +65,8 @@ with st.expander("📊 View Base Pricing Rate Card", expanded=False):
 
 st.divider()
 
-# --- CALCULATOR INTERFACE ---
+# --- CALCULATOR SECTION ---
+st.header("🧮 Calculator")
 st.subheader("🧮 Court Booking Fee Calculator")
 
 # 1. Date Input
@@ -75,27 +83,55 @@ duration = st.selectbox(
     format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours"
 )
 
+# 4. Optional Drilling Toggle
+include_drilling = st.toggle("Include Drilling?")
+
+drilling_fee = 0
+drilling_pax = 0
+
+if include_drilling:
+    drilling_pax = st.radio(
+        "Number of Pax for Drilling:",
+        options=[1, 2, 3, 4],
+        format_func=lambda x: f"{x} Pax (Rp{DRILLING_RATES[x]:,/k}".replace(',', '.') if x == 1 else f"{x} Pax (Rp{DRILLING_RATES[x]//1000}k)",
+        horizontal=True
+    )
+    drilling_fee = DRILLING_RATES[drilling_pax]
+
 # --- CALCULATION ---
 start_hour = int(start_time_str.split(":")[0])
-total_fee = 0
+court_fee = 0
 breakdown = []
 
 for h in range(duration):
     slot_dt = datetime.combine(selected_date, time(start_hour + h, 0))
     rate, category = get_hourly_rate(slot_dt)
-    total_fee += rate
+    court_fee += rate
     breakdown.append({
         "Slot": f"{slot_dt.strftime('%H:%M')} – {(slot_dt + timedelta(hours=1)).strftime('%H:%M')}",
         "Category": category,
         "Rate": f"Rp{rate:,.0f}"
     })
 
+if include_drilling:
+    breakdown.append({
+        "Slot": "Add-on",
+        "Category": f"Drilling ({drilling_pax} Pax)",
+        "Rate": f"Rp{drilling_fee:,.0f}"
+    })
+
+total_fee = court_fee + drilling_fee
 end_dt = datetime.combine(selected_date, time(start_hour, 0)) + timedelta(hours=duration)
+
+# --- DIVIDER BEFORE SUMMARY ---
+st.divider()
 
 # --- SUMMARY & FEE DISPLAY ---
 st.markdown("### 📋 Booking Summary")
 st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
 st.write(f"⏰ **Time:** {start_time_str} – {end_dt.strftime('%H:%M')} ({duration} hour{'s' if duration > 1 else ''})")
+if include_drilling:
+    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax)")
 
 # Breakdown Table
 st.table(breakdown)
