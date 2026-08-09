@@ -181,6 +181,7 @@ if court_option == "2 Courts - Same Time":
         if st.session_state.get("c1_include_coaching"):
             st.session_state["c1_include_drilling"] = False
 
+    # Drilling setup
     c_drilling = st.toggle("Include Drilling?", key="c1_include_drilling", disabled=st.session_state.get("c1_include_coaching", False), on_change=cb_same_drill)
     drill_court_target = "Both Courts"
     c_drill_pax = 0
@@ -192,45 +193,70 @@ if court_option == "2 Courts - Same Time":
         with d_col2:
             c_drill_pax = st.radio("Number of Pax for Drilling:", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="c1_drilling_pax")
 
+    # Coaching setup
     c_coaching = st.toggle("Include Coaching?", key="c1_include_coaching", disabled=st.session_state.get("c1_include_drilling", False), on_change=cb_same_coach)
+    coach_court_target = "Both Courts"
     coaching_assignments = {}
 
     if c_coaching:
-        st.markdown("**Court 1 Coaching**")
-        c1_col1, c1_col2 = st.columns(2)
-        with c1_col1:
-            c1_coach = st.selectbox("Select Coach (Court 1):", options=ALL_COACHES, key="same_c1_coach")
-        with c1_col2:
-            c1_pax = st.radio("Number of Pax for Coaching (Court 1):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c1_pax")
+        coach_court_target = st.radio("Apply Coaching To:", options=["Court 1 Only", "Court 2 Only", "Both Courts"], horizontal=True, key="same_coach_target")
 
-        avail_c2 = [c for c in ALL_COACHES if c != c1_coach]
-        if st.session_state.get("same_c2_coach") not in avail_c2:
-            st.session_state["same_c2_coach"] = avail_c2[0]
+        if coach_court_target == "Court 1 Only":
+            c1_col1, c1_col2 = st.columns(2)
+            with c1_col1:
+                c1_coach = st.selectbox("Select Coach (Court 1):", options=ALL_COACHES, key="same_c1_coach_only")
+            with c1_col2:
+                c1_pax = st.radio("Number of Pax for Coaching (Court 1):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c1_pax_only")
+            coaching_assignments[1] = {"coach_name": c1_coach, "pax": c1_pax}
 
-        st.markdown("**Court 2 Coaching**")
-        c2_col1, c2_col2 = st.columns(2)
-        with c2_col1:
-            c2_coach = st.selectbox("Select Coach (Court 2):", options=avail_c2, key="same_c2_coach")
-        with c2_col2:
-            c2_pax = st.radio("Number of Pax for Coaching (Court 2):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c2_pax")
+        elif coach_court_target == "Court 2 Only":
+            c2_col1, c2_col2 = st.columns(2)
+            with c2_col1:
+                c2_coach = st.selectbox("Select Coach (Court 2):", options=ALL_COACHES, key="same_c2_coach_only")
+            with c2_col2:
+                c2_pax = st.radio("Number of Pax for Coaching (Court 2):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c2_pax_only")
+            coaching_assignments[2] = {"coach_name": c2_coach, "pax": c2_pax}
 
-        coaching_assignments[1] = {"coach_name": c1_coach, "pax": c1_pax}
-        coaching_assignments[2] = {"coach_name": c2_coach, "pax": c2_pax}
+        else: # Both Courts
+            st.markdown("**Court 1 Coaching**")
+            c1_col1, c1_col2 = st.columns(2)
+            with c1_col1:
+                c1_coach = st.selectbox("Select Coach (Court 1):", options=ALL_COACHES, key="same_c1_coach")
+            with c1_col2:
+                c1_pax = st.radio("Number of Pax for Coaching (Court 1):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c1_pax")
 
-    # Non-drilling / non-coaching regular pax
+            avail_c2 = [c for c in ALL_COACHES if c != c1_coach]
+            if st.session_state.get("same_c2_coach") not in avail_c2:
+                st.session_state["same_c2_coach"] = avail_c2[0]
+
+            st.markdown("**Court 2 Coaching**")
+            c2_col1, c2_col2 = st.columns(2)
+            with c2_col1:
+                c2_coach = st.selectbox("Select Coach (Court 2):", options=avail_c2, key="same_c2_coach")
+            with c2_col2:
+                c2_pax = st.radio("Number of Pax for Coaching (Court 2):", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_c2_pax")
+
+            coaching_assignments[1] = {"coach_name": c1_coach, "pax": c1_pax}
+            coaching_assignments[2] = {"coach_name": c2_coach, "pax": c2_pax}
+
+    # Regular pax inputs for non-drilled or non-coached courts
     reg_pax_c1 = 0
     reg_pax_c2 = 0
+
     if not c_drilling and not c_coaching:
         reg_pax = st.radio("Number of Players per Court:", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_pax")
         reg_pax_c1 = reg_pax
         reg_pax_c2 = reg_pax
-    elif c_drilling and drill_court_target != "Both Courts":
-        target_court = 2 if drill_court_target == "Court 1 Only" else 1
-        other_reg_pax = st.radio(f"Number of Players on Court {target_court} (No Drilling):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_other_reg_pax")
-        if target_court == 1:
-            reg_pax_c1 = other_reg_pax
-        else:
-            reg_pax_c2 = other_reg_pax
+    else:
+        # Check Court 1 needs regular pax input
+        c1_has_addon = (c_drilling and drill_court_target in ["Court 1 Only", "Both Courts"]) or (c_coaching and coach_court_target in ["Court 1 Only", "Both Courts"])
+        if not c1_has_addon:
+            reg_pax_c1 = st.radio("Number of Players on Court 1 (No Add-on):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_c1_pax")
+
+        # Check Court 2 needs regular pax input
+        c2_has_addon = (c_drilling and drill_court_target in ["Court 2 Only", "Both Courts"]) or (c_coaching and coach_court_target in ["Court 2 Only", "Both Courts"])
+        if not c2_has_addon:
+            reg_pax_c2 = st.radio("Number of Players on Court 2 (No Add-on):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_c2_pax")
 
     dur_val = st.session_state["c1_play_duration"]
     s_str = st.session_state["c1_start_time"]
@@ -244,7 +270,7 @@ if court_option == "2 Courts - Same Time":
         "end_str": e_str,
         "include_drilling": c_drilling and (drill_court_target in ["Court 1 Only", "Both Courts"]),
         "drilling_pax": c_drill_pax if (c_drilling and drill_court_target in ["Court 1 Only", "Both Courts"]) else 0,
-        "include_coaching": c_coaching,
+        "include_coaching": c_coaching and (coach_court_target in ["Court 1 Only", "Both Courts"]),
         "coach_name": coaching_assignments.get(1, {}).get("coach_name", ""),
         "coaching_pax": coaching_assignments.get(1, {}).get("pax", 0),
         "regular_pax": reg_pax_c1
@@ -258,7 +284,7 @@ if court_option == "2 Courts - Same Time":
         "end_str": e_str,
         "include_drilling": c_drilling and (drill_court_target in ["Court 2 Only", "Both Courts"]),
         "drilling_pax": c_drill_pax if (c_drilling and drill_court_target in ["Court 2 Only", "Both Courts"]) else 0,
-        "include_coaching": c_coaching,
+        "include_coaching": c_coaching and (coach_court_target in ["Court 2 Only", "Both Courts"]),
         "coach_name": coaching_assignments.get(2, {}).get("coach_name", ""),
         "coaching_pax": coaching_assignments.get(2, {}).get("pax", 0),
         "regular_pax": reg_pax_c2
