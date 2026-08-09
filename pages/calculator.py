@@ -77,65 +77,65 @@ selected_date = st.date_input("Select Date", value=date.today())
 
 # 2. Start Time Dropdown (06:00 to 23:00)
 time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
-start_time_str = st.selectbox("Start Time", time_options)
+
+# Callback when Start Time changes
+def on_start_time_change():
+    start_h = int(st.session_state.start_time.split(":")[0])
+    dur = st.session_state.get("play_duration", 1)
+    st.session_state.end_time = f"{(start_h + dur):02d}:00"
+
+start_time_str = st.selectbox("Start Time", time_options, key="start_time", on_change=on_start_time_change)
 start_hour = int(start_time_str.split(":")[0])
 
-# 3. Input Mode Radio Toggle
-input_mode = st.radio(
-    "Calculate By:",
-    options=["Play Duration", "End Time"],
-    horizontal=True
-)
-
-# 4. Side-by-Side Play Duration and End Time Controls
-dur_col, end_col = st.columns(2)
-
+# Initialize session states for Duration and End Time sync
 max_duration = min(5, 24 - start_hour)
 duration_options = list(range(1, max_duration + 1))
-end_time_options = [f"{(start_hour + h):02d}:00" for h in range(1, min(6, 25 - start_hour))]
+end_time_options = [f"{(start_hour + h):02d}:00" for h in range(1, max_duration + 1)]
 
-if input_mode == "Play Duration":
-    with dur_col:
-        duration = st.selectbox(
-            "Play Duration",
-            options=duration_options,
-            format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours",
-            disabled=False
-        )
-    with end_col:
-        calc_end_str = f"{(start_hour + duration):02d}:00"
-        st.selectbox(
-            "End Time",
-            options=[calc_end_str],
-            index=0,
-            disabled=True  # Faded out when Duration mode is selected
-        )
-else:
-    with end_col:
-        end_time_str = st.selectbox(
-            "End Time",
-            options=end_time_options,
-            disabled=False
-        )
-        end_hour = int(end_time_str.split(":")[0])
-        duration = end_hour - start_hour
-    with dur_col:
-        st.selectbox(
-            "Play Duration",
-            options=[duration],
-            format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours",
-            index=0,
-            disabled=True  # Faded out when End Time mode is selected
-        )
+if "play_duration" not in st.session_state or st.session_state.play_duration not in duration_options:
+    st.session_state.play_duration = 1
 
-# 5. Number of Courts Dropdown
+if "end_time" not in st.session_state or st.session_state.end_time not in end_time_options:
+    st.session_state.end_time = f"{(start_hour + st.session_state.play_duration):02d}:00"
+
+# Sync Callbacks
+def update_from_duration():
+    st.session_state.end_time = f"{(start_hour + st.session_state.play_duration):02d}:00"
+
+def update_from_end_time():
+    end_h = int(st.session_state.end_time.split(":")[0])
+    st.session_state.play_duration = end_h - start_hour
+
+# 3. Side-by-Side Play Duration & End Time
+dur_col, end_col = st.columns(2)
+
+with dur_col:
+    st.selectbox(
+        "Play Duration",
+        options=duration_options,
+        format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours",
+        key="play_duration",
+        on_change=update_from_duration
+    )
+
+with end_col:
+    st.selectbox(
+        "End Time",
+        options=end_time_options,
+        key="end_time",
+        on_change=update_from_end_time
+    )
+
+duration = st.session_state.play_duration
+
+# 4. Number of Courts Dropdown
 num_courts = st.selectbox(
     "Number of Courts",
     options=[1, 2],
     format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
 )
 
-# 6. Optional Drilling Toggle & Pax Selection
+# 5. Optional Drilling Toggle & Pax Selection
 include_drilling = st.toggle("Include Drilling?")
 
 drilling_fee = 0
