@@ -8,6 +8,7 @@ st.title("🎾 draft request menu PPP")
 
 # --- PRICING DATA & LOGIC ---
 WEEKDAY_RATES = [
+    {"Time Slot": "00:00 – 06:00", "Price / Court / Hour": "Rp0", "Category": "Special Hours"},
     {"Time Slot": "06:00 – 07:00", "Price / Court / Hour": "Rp150,000", "Category": "Non-Peak"},
     {"Time Slot": "07:00 – 16:00", "Price / Court / Hour": "Rp210,000", "Category": "Morning"},
     {"Time Slot": "16:00 – 22:00", "Price / Court / Hour": "Rp249,000", "Category": "Peak"},
@@ -15,6 +16,7 @@ WEEKDAY_RATES = [
 ]
 
 WEEKEND_RATES = [
+    {"Time Slot": "00:00 – 06:00", "Price / Court / Hour": "Rp0", "Category": "Special Hours"},
     {"Time Slot": "06:00 – 07:00", "Price / Court / Hour": "Rp178,000", "Category": "Early Morning"},
     {"Time Slot": "07:00 – 22:00", "Price / Court / Hour": "Rp258,000", "Category": "All Day Weekend"},
     {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp199,000", "Category": "Late Night"}
@@ -35,7 +37,9 @@ def get_hourly_rate(booking_datetime):
     hour = booking_datetime.hour
 
     if not is_weekend:
-        if 6 <= hour < 7:
+        if 0 <= hour < 6:
+            return 0, "Special Hours"
+        elif 6 <= hour < 7:
             return 150000, "Non-Peak"
         elif 7 <= hour < 16:
             return 210000, "Morning"
@@ -46,7 +50,9 @@ def get_hourly_rate(booking_datetime):
         else:
             return 0, "Closed"
     else:
-        if 6 <= hour < 7:
+        if 0 <= hour < 6:
+            return 0, "Special Hours"
+        elif 6 <= hour < 7:
             return 178000, "Early Morning"
         elif 7 <= hour < 22:
             return 258000, "All Day Weekend"
@@ -89,7 +95,7 @@ def get_end_str(start_h, dur):
 
 # Time & Drilling setup per court
 court_configs = []
-time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
+time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
 
 for c in range(1, num_courts + 1):
     if num_courts > 1:
