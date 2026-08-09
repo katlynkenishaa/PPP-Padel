@@ -1,36 +1,28 @@
 import streamlit as st
 
-# 1. Define the pages from the pages/ folder
+# 1. Define the pages pointing to your scripts
 home_page = st.Page(
-    "app.py", 
+    "pages/home.py", 
     title="Home", 
     icon="🏠",
-    url_path=""  # Root URL (https://ppp-padel.streamlit.app)
+    url_path="",
+    default=True  # Fixes the empty url_path error
 )
 
 calculator_page = st.Page(
     "pages/calculator.py", 
     title="Calculator", 
     icon="🧮", 
-    url_path="calculator"  # Forces URL to https://ppp-padel.streamlit.app/calculator
+    url_path="calculator"
 )
 
 promotions_page = st.Page(
     "pages/promotions.py", 
     title="Promotions", 
     icon="🏷️", 
-    url_path="promotions"  # Forces URL to https://ppp-padel.streamlit.app/promotions
+    url_path="promotions"
 )
 
 # 2. Setup navigation
-pg = st.navigation({
-    "Menu": [home_page, calculator_page, promotions_page]
-})
-
-# 3. Only run the landing page content if user is on the Home page
-if pg.selected == home_page:
-    st.set_page_config(page_title="draft request menu PPP", page_icon="🎾")
-    st.title("🎾 draft request menu PPP")
-    st.info("👈 Choose Sidebar")
-else:
-    pg.run()
+pg = st.navigation([home_page, calculator_page, promotions_page])
+pg.run()
