@@ -6,7 +6,7 @@ calculator_page = st.Page(
     title="Calculator",
     icon="🧮",
     url_path="calculator",  # Forces URL to be /calculator
-    default=True,           # Sets as default landing page
+    default=False,           # Sets as default landing page
 )
 
 promotions_page = st.Page(
