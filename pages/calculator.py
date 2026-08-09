@@ -75,22 +75,22 @@ st.subheader("Court Booking Fee Calculator")
 # 1. Date Input
 selected_date = st.date_input("Select Date", value=date.today())
 
-# 2. Number of Courts Dropdown (1 or 2)
-num_courts = st.selectbox(
-    "Number of Courts",
-    options=[1, 2],
-    format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
-)
-
-# 3. Start Time Dropdown (06:00 to 23:00)
+# 2. Start Time Dropdown (06:00 to 23:00)
 time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
 start_time_str = st.selectbox("Start Time", time_options)
 
-# 4. Play Duration Dropdown (1 to 5 hours)
+# 3. Play Duration Dropdown (1 to 5 hours)
 duration = st.selectbox(
     "Play Duration", 
     options=[1, 2, 3, 4, 5], 
     format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours"
+)
+
+# 4. Number of Courts Dropdown (1 or 2) - Moved here!
+num_courts = st.selectbox(
+    "Number of Courts",
+    options=[1, 2],
+    format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
 )
 
 # 5. Optional Drilling Toggle & Pax Selection
