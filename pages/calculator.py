@@ -55,92 +55,88 @@ def get_hourly_rate(booking_datetime):
         else:
             return 0, "Closed"
 
-# --- TAB STRUCTURE ---
-tab_calc, = st.tabs(["🧮 Calculator"])
+# --- BASE RATE CARD DISPLAY ---
+with st.expander("📊 View Base Pricing Rate Card", expanded=False):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("**Weekdays**")
+        st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
+    with col2:
+        st.markdown("**Weekend (Saturday & Sunday)**")
+        st.dataframe(pd.DataFrame(WEEKEND_RATES), hide_index=True, use_container_width=True)
+    with col3:
+        st.markdown("**Drilling Rates**")
+        st.dataframe(pd.DataFrame(DRILLING_RATES_LIST), hide_index=True, use_container_width=True)
 
-with tab_calc:
-    # --- BASE RATE CARD DISPLAY ---
-    with st.expander("📊 View Base Pricing Rate Card", expanded=False):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("**Weekdays**")
-            st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
-        with col2:
-            st.markdown("**Weekend (Saturday & Sunday)**")
-            st.dataframe(pd.DataFrame(WEEKEND_RATES), hide_index=True, use_container_width=True)
-        with col3:
-            st.markdown("**Drilling Rates**")
-            st.dataframe(pd.DataFrame(DRILLING_RATES_LIST), hide_index=True, use_container_width=True)
+# --- CALCULATOR FORM ---
+st.subheader("Court Booking Fee Calculator")
 
-    # --- CALCULATOR FORM ---
-    st.subheader("Court Booking Fee Calculator")
+# 1. Date Input
+selected_date = st.date_input("Select Date", value=date.today())
 
-    # 1. Date Input
-    selected_date = st.date_input("Select Date", value=date.today())
+# 2. Start Time Dropdown (06:00 to 23:00)
+time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
+start_time_str = st.selectbox("Start Time", time_options)
 
-    # 2. Start Time Dropdown (06:00 to 23:00)
-    time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
-    start_time_str = st.selectbox("Start Time", time_options)
+# 3. Play Duration Dropdown (1 to 5 hours)
+duration = st.selectbox(
+    "Play Duration", 
+    options=[1, 2, 3, 4, 5], 
+    format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours"
+)
 
-    # 3. Play Duration Dropdown (1 to 5 hours)
-    duration = st.selectbox(
-        "Play Duration", 
-        options=[1, 2, 3, 4, 5], 
-        format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours"
+# 4. Optional Drilling Toggle & Pax Selection
+include_drilling = st.toggle("Include Drilling?")
+
+drilling_fee = 0
+drilling_pax = 0
+
+if include_drilling:
+    drilling_pax = st.radio(
+        "Number of Pax for Drilling:",
+        options=[1, 2, 3, 4],
+        format_func=lambda x: f"{x} Pax",
+        horizontal=True
     )
+    drilling_fee = DRILLING_MAP[drilling_pax]
 
-    # 4. Optional Drilling Toggle & Pax Selection
-    include_drilling = st.toggle("Include Drilling?")
+# --- CALCULATION ---
+start_hour = int(start_time_str.split(":")[0])
+court_fee = 0
+breakdown = []
 
-    drilling_fee = 0
-    drilling_pax = 0
+for h in range(duration):
+    slot_dt = datetime.combine(selected_date, time(start_hour + h, 0))
+    rate, category = get_hourly_rate(slot_dt)
+    court_fee += rate
+    breakdown.append({
+        "Item": f"Court Fee ({slot_dt.strftime('%H:%M')} – {(slot_dt + timedelta(hours=1)).strftime('%H:%M')})",
+        "Category": category,
+        "Rate": f"Rp{rate:,.0f}"
+    })
 
-    if include_drilling:
-        drilling_pax = st.radio(
-            "Number of Pax for Drilling:",
-            options=[1, 2, 3, 4],
-            format_func=lambda x: f"{x} Pax",
-            horizontal=True
-        )
-        drilling_fee = DRILLING_MAP[drilling_pax]
+if include_drilling:
+    breakdown.append({
+        "Item": "Add-on Fee",
+        "Category": f"Drilling ({drilling_pax} Pax)",
+        "Rate": f"Rp{drilling_fee:,.0f}"
+    })
 
-    # --- CALCULATION ---
-    start_hour = int(start_time_str.split(":")[0])
-    court_fee = 0
-    breakdown = []
+total_fee = court_fee + drilling_fee
+end_dt = datetime.combine(selected_date, time(start_hour, 0)) + timedelta(hours=duration)
 
-    for h in range(duration):
-        slot_dt = datetime.combine(selected_date, time(start_hour + h, 0))
-        rate, category = get_hourly_rate(slot_dt)
-        court_fee += rate
-        breakdown.append({
-            "Item": f"Court Fee ({slot_dt.strftime('%H:%M')} – {(slot_dt + timedelta(hours=1)).strftime('%H:%M')})",
-            "Category": category,
-            "Rate": f"Rp{rate:,.0f}"
-        })
+# --- DIVIDER BEFORE SUMMARY ---
+st.divider()
 
-    if include_drilling:
-        breakdown.append({
-            "Item": "Add-on Fee",
-            "Category": f"Drilling ({drilling_pax} Pax)",
-            "Rate": f"Rp{drilling_fee:,.0f}"
-        })
+# --- SUMMARY & FEE DISPLAY ---
+st.markdown("### 📋 Booking Summary")
+st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
+st.write(f"⏰ **Time:** {start_time_str} – {end_dt.strftime('%H:%M')} ({duration} hour{'s' if duration > 1 else ''})")
+if include_drilling:
+    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax)")
 
-    total_fee = court_fee + drilling_fee
-    end_dt = datetime.combine(selected_date, time(start_hour, 0)) + timedelta(hours=duration)
+# Breakdown Table
+st.table(breakdown)
 
-    # --- DIVIDER BEFORE SUMMARY ---
-    st.divider()
-
-    # --- SUMMARY & FEE DISPLAY ---
-    st.markdown("### 📋 Booking Summary")
-    st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
-    st.write(f"⏰ **Time:** {start_time_str} – {end_dt.strftime('%H:%M')} ({duration} hour{'s' if duration > 1 else ''})")
-    if include_drilling:
-        st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax)")
-
-    # Breakdown Table
-    st.table(breakdown)
-
-    # Total Fee Display
-    st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
+# Total Fee Display
+st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
