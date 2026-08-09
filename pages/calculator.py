@@ -75,18 +75,25 @@ st.subheader("Court Booking Fee Calculator")
 # 1. Date Input
 selected_date = st.date_input("Select Date", value=date.today())
 
-# 2. Start Time Dropdown (06:00 to 23:00)
+# 2. Number of Courts Dropdown (1 or 2)
+num_courts = st.selectbox(
+    "Number of Courts",
+    options=[1, 2],
+    format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
+)
+
+# 3. Start Time Dropdown (06:00 to 23:00)
 time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
 start_time_str = st.selectbox("Start Time", time_options)
 
-# 3. Play Duration Dropdown (1 to 5 hours)
+# 4. Play Duration Dropdown (1 to 5 hours)
 duration = st.selectbox(
     "Play Duration", 
     options=[1, 2, 3, 4, 5], 
     format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours"
 )
 
-# 4. Optional Drilling Toggle & Pax Selection
+# 5. Optional Drilling Toggle & Pax Selection
 include_drilling = st.toggle("Include Drilling?")
 
 drilling_fee = 0
@@ -108,12 +115,15 @@ breakdown = []
 
 for h in range(duration):
     slot_dt = datetime.combine(selected_date, time(start_hour + h, 0))
-    rate, category = get_hourly_rate(slot_dt)
-    court_fee += rate
+    rate_per_court, category = get_hourly_rate(slot_dt)
+    slot_total = rate_per_court * num_courts
+    court_fee += slot_total
+    
+    court_label = f"Court Fee ({num_courts} {'Court' if num_courts == 1 else 'Courts'})"
     breakdown.append({
-        "Item": f"Court Fee ({slot_dt.strftime('%H:%M')} – {(slot_dt + timedelta(hours=1)).strftime('%H:%M')})",
+        "Item": f"{court_label} [{slot_dt.strftime('%H:%M')} – {(slot_dt + timedelta(hours=1)).strftime('%H:%M')}]",
         "Category": category,
-        "Rate": f"Rp{rate:,.0f}"
+        "Rate": f"Rp{slot_total:,.0f}"
     })
 
 if include_drilling:
@@ -132,6 +142,7 @@ st.divider()
 # --- SUMMARY & FEE DISPLAY ---
 st.markdown("### 📋 Booking Summary")
 st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
+st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Courts'}")
 st.write(f"⏰ **Time:** {start_time_str} – {end_dt.strftime('%H:%M')} ({duration} hour{'s' if duration > 1 else ''})")
 if include_drilling:
     st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax)")
