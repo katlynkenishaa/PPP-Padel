@@ -87,21 +87,23 @@ def get_end_str(start_h, dur):
     end_h = start_h + dur
     return "00:00" if end_h == 24 else f"{end_h:02d}:00"
 
-# Time setup per court
+# Time & Drilling setup per court
 court_configs = []
 time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
 
 for c in range(1, num_courts + 1):
     if num_courts > 1:
-        st.markdown(f"#### 🏟️ Court {c} Timing")
+        st.markdown(f"#### 🏟️ Court {c} Configuration")
     
     start_key = f"c{c}_start_time"
     dur_key = f"c{c}_play_duration"
     end_key = f"c{c}_end_time"
+    drill_key = f"c{c}_include_drilling"
+    pax_key = f"c{c}_drilling_pax"
 
     # Default values initialization
     if start_key not in st.session_state:
-        st.session_state[start_key] = "17:00" if c == 1 else "17:00"
+        st.session_state[start_key] = "17:00"
 
     start_h = int(st.session_state[start_key].split(":")[0])
     max_dur = 24 - start_h
@@ -114,7 +116,7 @@ for c in range(1, num_courts + 1):
     if end_key not in st.session_state or st.session_state[end_key] not in end_opts:
         st.session_state[end_key] = get_end_str(start_h, st.session_state[dur_key])
 
-    # Callbacks for synchronization
+    # Callbacks for time synchronization
     def make_start_callback(c_num):
         def cb():
             sk = f"c{c_num}_start_time"
@@ -146,7 +148,7 @@ for c in range(1, num_courts + 1):
             st.session_state[dk] = eh - sh
         return cb
 
-    # Render inputs
+    # Render time controls
     s_col, d_col, e_col = st.columns(3)
     with s_col:
         st.selectbox("Start Time", time_options, key=start_key, on_change=make_start_callback(c))
@@ -155,37 +157,33 @@ for c in range(1, num_courts + 1):
     with e_col:
         st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
 
+    # Per-court drilling controls directly under timing controls
+    c_drilling = st.toggle("Include Drilling?", key=drill_key)
+    c_pax = 0
+    if c_drilling:
+        c_pax = st.radio(
+            "Number of Pax for Drilling:",
+            options=[1, 2, 3, 4],
+            format_func=lambda x: f"{x} Pax",
+            horizontal=True,
+            key=pax_key
+        )
+
     court_configs.append({
         "court_num": c,
         "start_hour": int(st.session_state[start_key].split(":")[0]),
         "duration": st.session_state[dur_key],
         "start_str": st.session_state[start_key],
-        "end_str": st.session_state[end_key]
+        "end_str": st.session_state[end_key],
+        "include_drilling": c_drilling,
+        "drilling_pax": c_pax
     })
-
-# 3. Optional Drilling Toggle & Pax Selection
-include_drilling = st.toggle("Include Drilling?")
-
-drilling_fee = 0
-drilling_pax = 0
-per_person_drilling_rate = 0
-
-# Determine total hours across courts for drilling calculation
-total_booking_hours = max([cfg["duration"] for cfg in court_configs])
-
-if include_drilling:
-    drilling_pax = st.radio(
-        "Number of Pax for Drilling:",
-        options=[1, 2, 3, 4],
-        format_func=lambda x: f"{x} Pax",
-        horizontal=True
-    )
-    total_drilling_hourly_rate = DRILLING_MAP[drilling_pax]
-    drilling_fee = total_drilling_hourly_rate * total_booking_hours
-    per_person_drilling_rate = total_drilling_hourly_rate / drilling_pax
 
 # --- CALCULATION ---
 court_fee = 0
+total_drilling_fee = 0
+total_drilling_pax = 0
+has_any_drilling = False
 breakdown = []
 
 for cfg in court_configs:
@@ -193,6 +191,7 @@ for cfg in court_configs:
     s_h = cfg["start_hour"]
     dur = cfg["duration"]
     
+    # Calculate court time fee
     for h in range(dur):
         slot_dt = datetime.combine(selected_date, time(s_h + h, 0))
         rate, category = get_hourly_rate(slot_dt)
@@ -207,14 +206,24 @@ for cfg in court_configs:
             "Rate": f"Rp{rate:,.0f}"
         })
 
-if include_drilling:
-    breakdown.append({
-        "Item": f"Add-on Fee ({total_booking_hours} hr{'s' if total_booking_hours > 1 else ''})",
-        "Category": f"Drilling ({drilling_pax} Pax @ Rp{per_person_drilling_rate:,.0f}/person/hr)",
-        "Rate": f"Rp{drilling_fee:,.0f}"
-    })
+    # Calculate per-court drilling fee
+    if cfg["include_drilling"]:
+        has_any_drilling = True
+        pax = cfg["drilling_pax"]
+        drilling_hourly_rate = DRILLING_MAP[pax]
+        c_drilling_fee = drilling_hourly_rate * dur
+        total_drilling_fee += c_drilling_fee
+        total_drilling_pax += pax
+        per_person_rate = drilling_hourly_rate / pax
 
-total_fee = court_fee + drilling_fee
+        item_label = f"Add-on Fee Court {c_num}" if num_courts > 1 else "Add-on Fee"
+        breakdown.append({
+            "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
+            "Category": f"Drilling ({pax} Pax @ Rp{per_person_rate:,.0f}/person/hr)",
+            "Rate": f"Rp{c_drilling_fee:,.0f}"
+        })
+
+total_fee = court_fee + total_drilling_fee
 
 # --- DIVIDER BEFORE SUMMARY ---
 st.divider()
@@ -227,9 +236,9 @@ st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Co
 for cfg in court_configs:
     prefix = f"Court {cfg['court_num']}" if num_courts > 1 else "Time"
     st.write(f"⏰ **{prefix}:** {cfg['start_str']} – {cfg['end_str']} ({cfg['duration']} hour{'s' if cfg['duration'] > 1 else ''})")
-
-if include_drilling:
-    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax for {total_booking_hours} hr{'s' if total_booking_hours > 1 else ''})")
+    if cfg["include_drilling"]:
+        dr_prefix = f"Court {cfg['court_num']} Drilling" if num_courts > 1 else "Drilling"
+        st.write(f"🎾 **{dr_prefix}:** Yes ({cfg['drilling_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
 
 # Breakdown Table
 st.table(breakdown)
@@ -241,15 +250,16 @@ with left_col:
     st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
 
 with right_col:
-    if include_drilling:
+    if has_any_drilling:
         st.metric(
-            label=f"Total Fee / Person ({drilling_pax} Pax)",
-            value=f"Rp{total_fee / drilling_pax:,.0f}"
+            label=f"Total Fee / Person ({total_drilling_pax} Pax)",
+            value=f"Rp{total_fee / total_drilling_pax:,.0f}"
         )
     else:
+        # Split table up to 12 Pax when drilling is NOT toggled
         st.markdown("**Total Fee / Person**")
         pax_split_data = [
             {"Players": f"{p} Pax", "Fee / Person": f"Rp{total_fee / p:,.0f}"}
-            for p in range(1, 9)
+            for p in range(1, 13)
         ]
         st.dataframe(pd.DataFrame(pax_split_data), hide_index=True, use_container_width=True)
