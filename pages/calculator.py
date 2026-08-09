@@ -30,16 +30,17 @@ DRILLING_RATES_LIST = [
 ]
 
 COACHING_RATES_LIST = [
-    {"Pax": "1 Pax", "Randy & Brian": "Rp450,000 / pax / hr", "Eddy": "Rp350,000 / pax / hr"},
-    {"Pax": "2 Pax", "Randy & Brian": "Rp275,000 / pax / hr", "Eddy": "Rp275,000 / pax / hr"},
-    {"Pax": "3 Pax", "Randy & Brian": "Rp217,000 / pax / hr", "Eddy": "Rp217,000 / pax / hr"},
-    {"Pax": "4 Pax", "Randy & Brian": "Rp187,500 / pax / hr", "Eddy": "Rp187,500 / pax / hr"},
+    {"Pax": "1 Pax", "Randy": "Rp450,000 / pax / hr", "Brian": "Rp450,000 / pax / hr", "Eddy": "Rp350,000 / pax / hr"},
+    {"Pax": "2 Pax", "Randy": "Rp275,000 / pax / hr", "Brian": "Rp275,000 / pax / hr", "Eddy": "Rp275,000 / pax / hr"},
+    {"Pax": "3 Pax", "Randy": "Rp217,000 / pax / hr", "Brian": "Rp217,000 / pax / hr", "Eddy": "Rp217,000 / pax / hr"},
+    {"Pax": "4 Pax", "Randy": "Rp187,500 / pax / hr", "Brian": "Rp187,500 / pax / hr", "Eddy": "Rp187,500 / pax / hr"},
 ]
 
 DRILLING_MAP = {1: 160000, 2: 190000, 3: 220000, 4: 250000}
 
 COACHING_MAP = {
-    "Coach Randy & Brian": {1: 450000, 2: 275000, 3: 217000, 4: 187500},
+    "Coach Randy": {1: 450000, 2: 275000, 3: 217000, 4: 187500},
+    "Coach Brian": {1: 450000, 2: 275000, 3: 217000, 4: 187500},
     "Coach Eddy": {1: 350000, 2: 275000, 3: 217000, 4: 187500}
 }
 
@@ -174,6 +175,19 @@ for c in range(1, num_courts + 1):
             st.session_state[dk] = eh - sh
         return cb
 
+    # Mutual Exclusion Callbacks
+    def make_drill_toggle_cb(c_num):
+        def cb():
+            if st.session_state[f"c{c_num}_include_drilling"]:
+                st.session_state[f"c{c_num}_include_coaching"] = False
+        return cb
+
+    def make_coach_toggle_cb(c_num):
+        def cb():
+            if st.session_state[f"c{c_num}_include_coaching"]:
+                st.session_state[f"c{c_num}_include_drilling"] = False
+        return cb
+
     # Render time controls
     s_col, d_col, e_col = st.columns(3)
     with s_col:
@@ -184,7 +198,12 @@ for c in range(1, num_courts + 1):
         st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
 
     # Drilling controls
-    c_drilling = st.toggle("Include Drilling?", key=drill_key)
+    c_drilling = st.toggle(
+        "Include Drilling?",
+        key=drill_key,
+        disabled=st.session_state.get(coach_key, False),
+        on_change=make_drill_toggle_cb(c)
+    )
     c_drill_pax = 0
     if c_drilling:
         c_drill_pax = st.radio(
@@ -196,7 +215,12 @@ for c in range(1, num_courts + 1):
         )
 
     # Coaching controls
-    c_coaching = st.toggle("Include Coaching?", key=coach_key)
+    c_coaching = st.toggle(
+        "Include Coaching?",
+        key=coach_key,
+        disabled=st.session_state.get(drill_key, False),
+        on_change=make_coach_toggle_cb(c)
+    )
     c_coach_name = ""
     c_coach_pax = 0
     if c_coaching:
@@ -204,7 +228,7 @@ for c in range(1, num_courts + 1):
         with coach_col1:
             c_coach_name = st.selectbox(
                 "Select Coach:",
-                options=["Coach Randy & Brian", "Coach Eddy"],
+                options=["Coach Randy", "Coach Brian", "Coach Eddy"],
                 key=coach_name_key
             )
         with coach_col2:
