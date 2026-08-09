@@ -21,10 +21,10 @@ WEEKEND_RATES = [
 ]
 
 DRILLING_RATES_LIST = [
-    {"Pax": "1 Pax", "Price / Hour": "Rp160,000", "Cost / Person / Hour": "Rp160,000"},
-    {"Pax": "2 Pax", "Price / Hour": "Rp190,000", "Cost / Person / Hour": "Rp95,000"},
-    {"Pax": "3 Pax", "Price / Hour": "Rp220,000", "Cost / Person / Hour": "Rp73,333"},
-    {"Pax": "4 Pax", "Price / Hour": "Rp250,000", "Cost / Person / Hour": "Rp62,500"},
+    {"Pax": "1 Pax", "Price / Hour": "Rp160,000"},
+    {"Pax": "2 Pax", "Price / Hour": "Rp190,000"},
+    {"Pax": "3 Pax", "Price / Hour": "Rp220,000"},
+    {"Pax": "4 Pax", "Price / Hour": "Rp250,000"},
 ]
 
 DRILLING_MAP = {1: 160000, 2: 190000, 3: 220000, 4: 250000}
@@ -58,7 +58,7 @@ def get_hourly_rate(booking_datetime):
 # --- BASE RATE CARD DISPLAY ---
 with st.container(border=True):
     st.markdown("📊 **View Base Pricing Rate Card**")
-    col1, col2, col3 = st.columns([1, 1, 1.2])
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("**Weekdays**")
         st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
@@ -102,7 +102,7 @@ def end_str_from_dur(dur):
 if "end_time" not in st.session_state or st.session_state.end_time not in end_time_options:
     st.session_state.end_time = end_str_from_dur(st.session_state.play_duration)
 
-# Sync Callbacks
+# Sync Callbacks for Duration & End Time
 def update_from_duration():
     st.session_state.end_time = end_str_from_dur(st.session_state.play_duration)
 
@@ -140,27 +140,33 @@ num_courts = st.selectbox(
     format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
 )
 
-# 5. Optional Drilling Toggle & Pax Selection
+# 5. Optional Drilling Toggle
 include_drilling = st.toggle("Include Drilling?")
 
-drilling_fee = 0
-drilling_pax = 0
-per_person_per_hr = 0
-per_person_total = 0
+# Initialize Pax state if not present
+if "num_pax" not in st.session_state:
+    st.session_state.num_pax = 4
 
+# If drilling is enabled, limit pax choices to 1-4. Otherwise 1-8.
 if include_drilling:
-    drilling_pax = st.radio(
-        "Number of Pax for Drilling:",
-        options=[1, 2, 3, 4],
-        format_func=lambda x: f"{x} Pax",
-        horizontal=True
-    )
-    drilling_hourly_rate = DRILLING_MAP[drilling_pax]
+    if st.session_state.num_pax > 4:
+        st.session_state.num_pax = 4
+    pax_options = [1, 2, 3, 4]
+else:
+    pax_options = [1, 2, 3, 4, 5, 6, 7, 8]
+
+# 6. Number of Pax Dropdown (Under Courts / Drilling)
+num_pax = st.selectbox(
+    "Number of Pax",
+    options=pax_options,
+    format_func=lambda x: f"{x} Pax",
+    key="num_pax"
+)
+
+drilling_fee = 0
+if include_drilling:
+    drilling_hourly_rate = DRILLING_MAP[num_pax]
     drilling_fee = drilling_hourly_rate * duration
-    
-    # Calculate per person costs
-    per_person_per_hr = drilling_hourly_rate / drilling_pax
-    per_person_total = drilling_fee / drilling_pax
 
 # --- CALCULATION ---
 court_fee = 0
@@ -184,11 +190,12 @@ for h in range(duration):
 if include_drilling:
     breakdown.append({
         "Item": f"Add-on Fee ({duration} hr{'s' if duration > 1 else ''})",
-        "Category": f"Drilling ({drilling_pax} Pax @ Rp{per_person_per_hr:,.0f}/pax/hr)",
+        "Category": f"Drilling ({num_pax} Pax @ Rp{DRILLING_MAP[num_pax]:,.0f}/hr)",
         "Rate": f"Rp{drilling_fee:,.0f}"
     })
 
 total_fee = court_fee + drilling_fee
+total_fee_per_person = total_fee / num_pax
 display_end_time = end_str_from_dur(duration)
 
 # --- DIVIDER BEFORE SUMMARY ---
@@ -199,11 +206,16 @@ st.markdown("### 📋 Booking Summary")
 st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
 st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Courts'}")
 st.write(f"⏰ **Time:** {start_time_str} – {display_end_time} ({duration} hour{'s' if duration > 1 else ''})")
+st.write(f"👥 **Pax:** {num_pax} Pax")
 if include_drilling:
-    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax for {duration} hr{'s' if duration > 1 else ''} — **Rp{per_person_total:,.0f} / person**)")
+    st.write(f"🎾 **Drilling:** Yes ({num_pax} Pax for {duration} hr{'s' if duration > 1 else ''})")
 
 # Breakdown Table
 st.table(breakdown)
 
-# Total Fee Display
-st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
+# Total Fee Displays (Side by Side)
+metric_col1, metric_col2 = st.columns(2)
+with metric_col1:
+    st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
+with metric_col2:
+    st.metric(label="Total Fee / Person", value=f"Rp{total_fee_per_person:,.0f}")
