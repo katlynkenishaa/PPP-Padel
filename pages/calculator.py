@@ -111,7 +111,7 @@ def get_end_str(start_h, dur):
     end_h = start_h + dur
     return "00:00" if end_h == 24 else f"{end_h:02d}:00"
 
-# Time, Drilling & Coaching setup per court
+# Time, Drilling, Coaching & Regular Pax setup per court
 court_configs = []
 time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
 
@@ -127,6 +127,7 @@ for c in range(1, num_courts + 1):
     coach_key = f"c{c}_include_coaching"
     coach_name_key = f"c{c}_coach_name"
     coach_pax_key = f"c{c}_coaching_pax"
+    reg_pax_key = f"c{c}_regular_pax"
 
     # Default values initialization
     if start_key not in st.session_state:
@@ -240,6 +241,17 @@ for c in range(1, num_courts + 1):
                 key=coach_pax_key
             )
 
+    # Regular court player count input if NO drilling or coaching is selected
+    c_reg_pax = 0
+    if not c_drilling and not c_coaching:
+        c_reg_pax = st.selectbox(
+            "Number of Players on this Court:",
+            options=list(range(1, 9)),
+            index=3,  # Defaults to 4 Pax
+            format_func=lambda x: f"{x} Pax",
+            key=reg_pax_key
+        )
+
     court_configs.append({
         "court_num": c,
         "start_hour": int(st.session_state[start_key].split(":")[0]),
@@ -250,15 +262,15 @@ for c in range(1, num_courts + 1):
         "drilling_pax": c_drill_pax,
         "include_coaching": c_coaching,
         "coach_name": c_coach_name,
-        "coaching_pax": c_coach_pax
+        "coaching_pax": c_coach_pax,
+        "regular_pax": c_reg_pax
     })
 
 # --- CALCULATION ---
 court_fee = 0
 total_drilling_fee = 0
 total_coaching_fee = 0
-total_add_on_pax = 0
-has_any_addon = False
+total_pax = 0
 breakdown = []
 
 for cfg in court_configs:
@@ -266,6 +278,14 @@ for cfg in court_configs:
     s_h = cfg["start_hour"]
     dur = cfg["duration"]
     
+    # Track players per court
+    if cfg["include_drilling"]:
+        total_pax += cfg["drilling_pax"]
+    elif cfg["include_coaching"]:
+        total_pax += cfg["coaching_pax"]
+    else:
+        total_pax += cfg["regular_pax"]
+
     # Calculate court time fee
     for h in range(dur):
         slot_dt = datetime.combine(selected_date, time(s_h + h, 0))
@@ -283,12 +303,10 @@ for cfg in court_configs:
 
     # Calculate per-court drilling fee
     if cfg["include_drilling"]:
-        has_any_addon = True
         pax = cfg["drilling_pax"]
         drilling_hourly_rate = DRILLING_MAP[pax]
         c_drilling_fee = drilling_hourly_rate * dur
         total_drilling_fee += c_drilling_fee
-        total_add_on_pax += pax
         per_person_rate = drilling_hourly_rate / pax
 
         item_label = f"Drilling Fee Court {c_num}" if num_courts > 1 else "Drilling Fee"
@@ -300,13 +318,11 @@ for cfg in court_configs:
 
     # Calculate per-court coaching fee
     if cfg["include_coaching"]:
-        has_any_addon = True
         pax = cfg["coaching_pax"]
         c_name = cfg["coach_name"]
         rate_per_pax_hr = COACHING_MAP[c_name][pax]
         c_coaching_fee = rate_per_pax_hr * pax * dur
         total_coaching_fee += c_coaching_fee
-        total_add_on_pax += pax
 
         item_label = f"Coaching Fee Court {c_num}" if num_courts > 1 else "Coaching Fee"
         breakdown.append({
@@ -331,9 +347,12 @@ for cfg in court_configs:
     if cfg["include_drilling"]:
         dr_prefix = f"Court {cfg['court_num']} Drilling" if num_courts > 1 else "Drilling"
         st.write(f"🎾 **{dr_prefix}:** Yes ({cfg['drilling_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
-    if cfg["include_coaching"]:
+    elif cfg["include_coaching"]:
         co_prefix = f"Court {cfg['court_num']} Coaching" if num_courts > 1 else "Coaching"
         st.write(f"🧢 **{co_prefix}:** {cfg['coach_name']} ({cfg['coaching_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
+    else:
+        pax_prefix = f"Court {cfg['court_num']} Players" if num_courts > 1 else "Players"
+        st.write(f"👥 **{pax_prefix}:** {cfg['regular_pax']} Pax")
 
 # Breakdown Table
 st.table(breakdown)
@@ -345,19 +364,7 @@ with left_col:
     st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
 
 with right_col:
-    if has_any_addon and total_add_on_pax > 0:
-        st.metric(
-            label=f"Total Fee / Person ({total_add_on_pax} Pax)",
-            value=f"Rp{total_fee / total_add_on_pax:,.0f}"
-        )
-    else:
-        selected_pax = st.selectbox(
-            "Select Number of Players",
-            options=list(range(1, 13)),
-            index=3,  # Defaults to 4 Pax
-            format_func=lambda x: f"{x} Pax"
-        )
-        st.metric(
-            label=f"Total Fee / Person ({selected_pax} Pax)",
-            value=f"Rp{total_fee / selected_pax:,.0f}"
-        )
+    st.metric(
+        label=f"Total Fee / Person ({total_pax} Total Pax)",
+        value=f"Rp{total_fee / total_pax:,.0f}"
+    )
