@@ -31,7 +31,7 @@ DRILLING_MAP = {1: 160000, 2: 190000, 3: 220000, 4: 250000}
 
 def get_hourly_rate(booking_datetime):
     """Returns (price, category) for a single 1-hour slot starting at booking_datetime."""
-    is_weekend = booking_datetime.weekday() in [5, 6]  # 5 = Saturday, 6 = Sunday
+    is_weekend = booking_datetime.weekday() in [5, 6]
     hour = booking_datetime.hour
 
     if not is_weekend:
@@ -80,34 +80,62 @@ time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
 start_time_str = st.selectbox("Start Time", time_options)
 start_hour = int(start_time_str.split(":")[0])
 
-# 3. Input Mode Selection (Play Duration vs End Time)
+# 3. Input Mode Radio Toggle
 input_mode = st.radio(
     "Calculate By:",
     options=["Play Duration", "End Time"],
     horizontal=True
 )
 
-if input_mode == "Play Duration":
-    max_duration = min(5, 24 - start_hour)
-    duration = st.selectbox(
-        "Play Duration", 
-        options=list(range(1, max_duration + 1)), 
-        format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours"
-    )
-else:
-    end_time_options = [f"{(start_hour + h):02d}:00" for h in range(1, min(6, 25 - start_hour))]
-    end_time_str = st.selectbox("End Time", end_time_options)
-    end_hour = int(end_time_str.split(":")[0])
-    duration = end_hour - start_hour
+# 4. Side-by-Side Play Duration and End Time Controls
+dur_col, end_col = st.columns(2)
 
-# 4. Number of Courts Dropdown (1 or 2)
+max_duration = min(5, 24 - start_hour)
+duration_options = list(range(1, max_duration + 1))
+end_time_options = [f"{(start_hour + h):02d}:00" for h in range(1, min(6, 25 - start_hour))]
+
+if input_mode == "Play Duration":
+    with dur_col:
+        duration = st.selectbox(
+            "Play Duration",
+            options=duration_options,
+            format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours",
+            disabled=False
+        )
+    with end_col:
+        calc_end_str = f"{(start_hour + duration):02d}:00"
+        st.selectbox(
+            "End Time",
+            options=[calc_end_str],
+            index=0,
+            disabled=True  # Faded out when Duration mode is selected
+        )
+else:
+    with end_col:
+        end_time_str = st.selectbox(
+            "End Time",
+            options=end_time_options,
+            disabled=False
+        )
+        end_hour = int(end_time_str.split(":")[0])
+        duration = end_hour - start_hour
+    with dur_col:
+        st.selectbox(
+            "Play Duration",
+            options=[duration],
+            format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours",
+            index=0,
+            disabled=True  # Faded out when End Time mode is selected
+        )
+
+# 5. Number of Courts Dropdown
 num_courts = st.selectbox(
     "Number of Courts",
     options=[1, 2],
     format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
 )
 
-# 5. Optional Drilling Toggle & Pax Selection
+# 6. Optional Drilling Toggle & Pax Selection
 include_drilling = st.toggle("Include Drilling?")
 
 drilling_fee = 0
