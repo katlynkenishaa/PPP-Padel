@@ -8,18 +8,18 @@ st.title("🎾 draft request menu PPP")
 
 # --- PRICING DATA & LOGIC ---
 WEEKDAY_RATES = [
-    {"Time Slot": "00:00 – 06:00", "Price / Court / Hour": "Rp0", "Category": "Special Hours"},
     {"Time Slot": "06:00 – 07:00", "Price / Court / Hour": "Rp150,000", "Category": "Non-Peak"},
     {"Time Slot": "07:00 – 16:00", "Price / Court / Hour": "Rp210,000", "Category": "Morning"},
     {"Time Slot": "16:00 – 22:00", "Price / Court / Hour": "Rp249,000", "Category": "Peak"},
-    {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp185,000", "Category": "Late Night"}
+    {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp185,000", "Category": "Late Night"},
+    {"Time Slot": "00:00 – 06:00", "Price / Court / Hour": "Rp0", "Category": "Special Hours"}
 ]
 
 WEEKEND_RATES = [
-    {"Time Slot": "00:00 – 06:00", "Price / Court / Hour": "Rp0", "Category": "Special Hours"},
     {"Time Slot": "06:00 – 07:00", "Price / Court / Hour": "Rp178,000", "Category": "Early Morning"},
     {"Time Slot": "07:00 – 22:00", "Price / Court / Hour": "Rp258,000", "Category": "All Day Weekend"},
-    {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp199,000", "Category": "Late Night"}
+    {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp199,000", "Category": "Late Night"},
+    {"Time Slot": "00:00 – 06:00", "Price / Court / Hour": "Rp0", "Category": "Special Hours"}
 ]
 
 DRILLING_RATES_LIST = [
@@ -29,7 +29,19 @@ DRILLING_RATES_LIST = [
     {"Pax": "4 Pax", "Price / Hour": "Rp250,000", "Cost / Person / Hour": "Rp62,500"},
 ]
 
+COACHING_RATES_LIST = [
+    {"Pax": "1 Pax", "Randy & Brian": "Rp450,000 / pax / hr", "Eddy": "Rp350,000 / pax / hr"},
+    {"Pax": "2 Pax", "Randy & Brian": "Rp275,000 / pax / hr", "Eddy": "Rp275,000 / pax / hr"},
+    {"Pax": "3 Pax", "Randy & Brian": "Rp217,000 / pax / hr", "Eddy": "Rp217,000 / pax / hr"},
+    {"Pax": "4 Pax", "Randy & Brian": "Rp187,500 / pax / hr", "Eddy": "Rp187,500 / pax / hr"},
+]
+
 DRILLING_MAP = {1: 160000, 2: 190000, 3: 220000, 4: 250000}
+
+COACHING_MAP = {
+    "Coach Randy & Brian": {1: 450000, 2: 275000, 3: 217000, 4: 187500},
+    "Coach Eddy": {1: 350000, 2: 275000, 3: 217000, 4: 187500}
+}
 
 def get_hourly_rate(booking_datetime):
     """Returns (price, category) for a single 1-hour slot starting at booking_datetime."""
@@ -64,16 +76,21 @@ def get_hourly_rate(booking_datetime):
 # --- BASE RATE CARD DISPLAY ---
 with st.container(border=True):
     st.markdown("📊 **View Base Pricing Rate Card**")
-    col1, col2, col3 = st.columns([1, 1, 1.2])
+    col1, col2 = st.columns(2)
     with col1:
         st.markdown("**Weekdays**")
         st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
     with col2:
         st.markdown("**Weekend (Saturday & Sunday)**")
         st.dataframe(pd.DataFrame(WEEKEND_RATES), hide_index=True, use_container_width=True)
+    
+    col3, col4 = st.columns(2)
     with col3:
         st.markdown("**Drilling Rates**")
         st.dataframe(pd.DataFrame(DRILLING_RATES_LIST), hide_index=True, use_container_width=True)
+    with col4:
+        st.markdown("**Coaching Rates**")
+        st.dataframe(pd.DataFrame(COACHING_RATES_LIST), hide_index=True, use_container_width=True)
 
 # --- CALCULATOR FORM ---
 st.subheader("Court Booking Fee Calculator")
@@ -93,7 +110,7 @@ def get_end_str(start_h, dur):
     end_h = start_h + dur
     return "00:00" if end_h == 24 else f"{end_h:02d}:00"
 
-# Time & Drilling setup per court
+# Time, Drilling & Coaching setup per court
 court_configs = []
 time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
 
@@ -105,7 +122,10 @@ for c in range(1, num_courts + 1):
     dur_key = f"c{c}_play_duration"
     end_key = f"c{c}_end_time"
     drill_key = f"c{c}_include_drilling"
-    pax_key = f"c{c}_drilling_pax"
+    drill_pax_key = f"c{c}_drilling_pax"
+    coach_key = f"c{c}_include_coaching"
+    coach_name_key = f"c{c}_coach_name"
+    coach_pax_key = f"c{c}_coaching_pax"
 
     # Default values initialization
     if start_key not in st.session_state:
@@ -163,17 +183,38 @@ for c in range(1, num_courts + 1):
     with e_col:
         st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
 
-    # Per-court drilling controls
+    # Drilling controls
     c_drilling = st.toggle("Include Drilling?", key=drill_key)
-    c_pax = 0
+    c_drill_pax = 0
     if c_drilling:
-        c_pax = st.radio(
+        c_drill_pax = st.radio(
             "Number of Pax for Drilling:",
             options=[1, 2, 3, 4],
             format_func=lambda x: f"{x} Pax",
             horizontal=True,
-            key=pax_key
+            key=drill_pax_key
         )
+
+    # Coaching controls
+    c_coaching = st.toggle("Include Coaching?", key=coach_key)
+    c_coach_name = ""
+    c_coach_pax = 0
+    if c_coaching:
+        coach_col1, coach_col2 = st.columns(2)
+        with coach_col1:
+            c_coach_name = st.selectbox(
+                "Select Coach:",
+                options=["Coach Randy & Brian", "Coach Eddy"],
+                key=coach_name_key
+            )
+        with coach_col2:
+            c_coach_pax = st.radio(
+                "Number of Pax for Coaching:",
+                options=[1, 2, 3, 4],
+                format_func=lambda x: f"{x} Pax",
+                horizontal=True,
+                key=coach_pax_key
+            )
 
     court_configs.append({
         "court_num": c,
@@ -182,14 +223,18 @@ for c in range(1, num_courts + 1):
         "start_str": st.session_state[start_key],
         "end_str": st.session_state[end_key],
         "include_drilling": c_drilling,
-        "drilling_pax": c_pax
+        "drilling_pax": c_drill_pax,
+        "include_coaching": c_coaching,
+        "coach_name": c_coach_name,
+        "coaching_pax": c_coach_pax
     })
 
 # --- CALCULATION ---
 court_fee = 0
 total_drilling_fee = 0
-total_drilling_pax = 0
-has_any_drilling = False
+total_coaching_fee = 0
+total_add_on_pax = 0
+has_any_addon = False
 breakdown = []
 
 for cfg in court_configs:
@@ -214,22 +259,39 @@ for cfg in court_configs:
 
     # Calculate per-court drilling fee
     if cfg["include_drilling"]:
-        has_any_drilling = True
+        has_any_addon = True
         pax = cfg["drilling_pax"]
         drilling_hourly_rate = DRILLING_MAP[pax]
         c_drilling_fee = drilling_hourly_rate * dur
         total_drilling_fee += c_drilling_fee
-        total_drilling_pax += pax
+        total_add_on_pax += pax
         per_person_rate = drilling_hourly_rate / pax
 
-        item_label = f"Add-on Fee Court {c_num}" if num_courts > 1 else "Add-on Fee"
+        item_label = f"Drilling Fee Court {c_num}" if num_courts > 1 else "Drilling Fee"
         breakdown.append({
             "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
             "Category": f"Drilling ({pax} Pax @ Rp{per_person_rate:,.0f}/person/hr)",
             "Rate": f"Rp{c_drilling_fee:,.0f}"
         })
 
-total_fee = court_fee + total_drilling_fee
+    # Calculate per-court coaching fee
+    if cfg["include_coaching"]:
+        has_any_addon = True
+        pax = cfg["coaching_pax"]
+        c_name = cfg["coach_name"]
+        rate_per_pax_hr = COACHING_MAP[c_name][pax]
+        c_coaching_fee = rate_per_pax_hr * pax * dur
+        total_coaching_fee += c_coaching_fee
+        total_add_on_pax += pax
+
+        item_label = f"Coaching Fee Court {c_num}" if num_courts > 1 else "Coaching Fee"
+        breakdown.append({
+            "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
+            "Category": f"{c_name} ({pax} Pax @ Rp{rate_per_pax_hr:,.0f}/person/hr)",
+            "Rate": f"Rp{c_coaching_fee:,.0f}"
+        })
+
+total_fee = court_fee + total_drilling_fee + total_coaching_fee
 
 # --- DIVIDER BEFORE SUMMARY ---
 st.divider()
@@ -245,6 +307,9 @@ for cfg in court_configs:
     if cfg["include_drilling"]:
         dr_prefix = f"Court {cfg['court_num']} Drilling" if num_courts > 1 else "Drilling"
         st.write(f"🎾 **{dr_prefix}:** Yes ({cfg['drilling_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
+    if cfg["include_coaching"]:
+        co_prefix = f"Court {cfg['court_num']} Coaching" if num_courts > 1 else "Coaching"
+        st.write(f"🧢 **{co_prefix}:** {cfg['coach_name']} ({cfg['coaching_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
 
 # Breakdown Table
 st.table(breakdown)
@@ -256,10 +321,10 @@ with left_col:
     st.metric(label="Total Fee", value=f"Rp{total_fee:,.0f}")
 
 with right_col:
-    if has_any_drilling:
+    if has_any_addon and total_add_on_pax > 0:
         st.metric(
-            label=f"Total Fee / Person ({total_drilling_pax} Pax)",
-            value=f"Rp{total_fee / total_drilling_pax:,.0f}"
+            label=f"Total Fee / Person ({total_add_on_pax} Pax)",
+            value=f"Rp{total_fee / total_add_on_pax:,.0f}"
         )
     else:
         selected_pax = st.selectbox(
