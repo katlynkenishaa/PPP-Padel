@@ -44,6 +44,8 @@ COACHING_MAP = {
     "Coach Eddy": {1: 350000, 2: 275000, 3: 217000, 4: 187500}
 }
 
+ALL_COACHES = ["Coach Randy", "Coach Brian", "Coach Eddy"]
+
 def get_hourly_rate(booking_datetime):
     """Returns (price, category) for a single 1-hour slot starting at booking_datetime."""
     is_weekend = booking_datetime.weekday() in [5, 6]
@@ -111,9 +113,25 @@ def get_end_str(start_h, dur):
     end_h = start_h + dur
     return "00:00" if end_h == 24 else f"{end_h:02d}:00"
 
-# Time, Drilling, Coaching & Regular Pax setup per court
-court_configs = []
 time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
+
+# Check overlap function between court 1 and court 2
+def check_time_overlap():
+    if num_courts < 2:
+        return False
+    s1 = int(st.session_state.get("c1_start_time", "17:00").split(":")[0])
+    d1 = st.session_state.get("c1_play_duration", 2)
+    e1 = s1 + d1
+
+    s2 = int(st.session_state.get("c2_start_time", "17:00").split(":")[0])
+    d2 = st.session_state.get("c2_play_duration", 3)
+    e2 = s2 + d2
+
+    return (s1 < e2) and (s2 < e1)
+
+is_overlapping = check_time_overlap()
+
+court_configs = []
 
 for c in range(1, num_courts + 1):
     if num_courts > 1:
@@ -225,11 +243,24 @@ for c in range(1, num_courts + 1):
     c_coach_name = ""
     c_coach_pax = 0
     if c_coaching:
+        # Determine available coaches for this court if times overlap
+        other_court = 2 if c == 1 else 1
+        other_coaching = st.session_state.get(f"c{other_court}_include_coaching", False)
+        other_coach = st.session_state.get(f"c{other_court}_coach_name", "")
+
+        available_coaches = ALL_COACHES.copy()
+        if is_overlapping and other_coaching and other_coach in available_coaches:
+            available_coaches.remove(other_coach)
+
+        # Fallback in case current selection was filtered out
+        if coach_name_key in st.session_state and st.session_state[coach_name_key] not in available_coaches:
+            st.session_state[coach_name_key] = available_coaches[0]
+
         coach_col1, coach_col2 = st.columns(2)
         with coach_col1:
             c_coach_name = st.selectbox(
                 "Select Coach:",
-                options=["Coach Randy", "Coach Brian", "Coach Eddy"],
+                options=available_coaches,
                 key=coach_name_key
             )
         with coach_col2:
