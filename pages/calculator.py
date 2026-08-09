@@ -101,23 +101,21 @@ st.subheader("Court Booking Fee Calculator")
 # 1. Date Input
 selected_date = st.date_input("Select Date", value=date.today())
 
-# 2. Number of Courts
-num_courts = st.selectbox(
+# 2. Number of Courts Option
+court_option = st.selectbox(
     "Number of Courts",
-    options=[1, 2],
-    format_func=lambda x: f"{x} Court" if x == 1 else f"{x} Courts"
+    options=["1 Court", "2 Courts - Similar", "2 Courts - Different"]
 )
 
-# Helper function to compute end string
 def get_end_str(start_h, dur):
     end_h = start_h + dur
     return "00:00" if end_h == 24 else f"{end_h:02d}:00"
 
 time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
 
-# Check overlap function between court 1 and court 2
+# Helper overlap check for '2 Courts - Different'
 def check_time_overlap():
-    if num_courts < 2:
+    if court_option != "2 Courts - Different":
         return False
     s1 = int(st.session_state.get("c1_start_time", "17:00").split(":")[0])
     d1 = st.session_state.get("c1_play_duration", 2)
@@ -132,9 +130,10 @@ def check_time_overlap():
 is_overlapping = check_time_overlap()
 
 court_configs = []
+num_forms = 2 if court_option == "2 Courts - Different" else 1
 
-for c in range(1, num_courts + 1):
-    if num_courts > 1:
+for c in range(1, num_forms + 1):
+    if court_option == "2 Courts - Different":
         st.markdown(f"#### 🏟️ Court {c} Configuration")
     
     start_key = f"c{c}_start_time"
@@ -147,7 +146,6 @@ for c in range(1, num_courts + 1):
     coach_pax_key = f"c{c}_coaching_pax"
     reg_pax_key = f"c{c}_regular_pax"
 
-    # Default values initialization
     if start_key not in st.session_state:
         st.session_state[start_key] = "17:00"
 
@@ -157,7 +155,7 @@ for c in range(1, num_courts + 1):
     end_opts = [f"{h:02d}:00" for h in range(start_h + 1, 24)] + ["00:00"]
 
     if dur_key not in st.session_state or st.session_state[dur_key] not in dur_opts:
-        st.session_state[dur_key] = 2 if c == 1 else (3 if num_courts > 1 else 2)
+        st.session_state[dur_key] = 2 if c == 1 else (3 if num_forms > 1 else 2)
 
     if end_key not in st.session_state or st.session_state[end_key] not in end_opts:
         st.session_state[end_key] = get_end_str(start_h, st.session_state[dur_key])
@@ -207,7 +205,7 @@ for c in range(1, num_courts + 1):
                 st.session_state[f"c{c_num}_include_drilling"] = False
         return cb
 
-    # Render time controls
+    # Time Controls
     s_col, d_col, e_col = st.columns(3)
     with s_col:
         st.selectbox("Start Time", time_options, key=start_key, on_change=make_start_callback(c))
@@ -216,7 +214,7 @@ for c in range(1, num_courts + 1):
     with e_col:
         st.selectbox("End Time", options=end_opts, key=end_key, on_change=make_end_callback(c))
 
-    # Drilling controls
+    # Drilling Controls
     c_drilling = st.toggle(
         "Include Drilling?",
         key=drill_key,
@@ -233,7 +231,7 @@ for c in range(1, num_courts + 1):
             key=drill_pax_key
         )
 
-    # Coaching controls
+    # Coaching Controls
     c_coaching = st.toggle(
         "Include Coaching?",
         key=coach_key,
@@ -243,16 +241,15 @@ for c in range(1, num_courts + 1):
     c_coach_name = ""
     c_coach_pax = 0
     if c_coaching:
-        # Determine available coaches for this court if times overlap
-        other_court = 2 if c == 1 else 1
-        other_coaching = st.session_state.get(f"c{other_court}_include_coaching", False)
-        other_coach = st.session_state.get(f"c{other_court}_coach_name", "")
-
         available_coaches = ALL_COACHES.copy()
-        if is_overlapping and other_coaching and other_coach in available_coaches:
-            available_coaches.remove(other_coach)
+        if court_option == "2 Courts - Different":
+            other_court = 2 if c == 1 else 1
+            other_coaching = st.session_state.get(f"c{other_court}_include_coaching", False)
+            other_coach = st.session_state.get(f"c{other_court}_coach_name", "")
 
-        # Fallback in case current selection was filtered out
+            if is_overlapping and other_coaching and other_coach in available_coaches:
+                available_coaches.remove(other_coach)
+
         if coach_name_key in st.session_state and st.session_state[coach_name_key] not in available_coaches:
             st.session_state[coach_name_key] = available_coaches[0]
 
@@ -272,11 +269,11 @@ for c in range(1, num_courts + 1):
                 key=coach_pax_key
             )
 
-    # Regular court player count input as Radio Buttons (1–8 Pax)
+    # Regular Players Controls
     c_reg_pax = 0
     if not c_drilling and not c_coaching:
         c_reg_pax = st.radio(
-            "Number of Players on this Court:",
+            "Number of Players on this Court:" if court_option == "2 Courts - Different" else "Number of Players:",
             options=[1, 2, 3, 4, 5, 6, 7, 8],
             format_func=lambda x: f"{x} Pax",
             horizontal=True,
@@ -304,58 +301,67 @@ total_coaching_fee = 0
 total_pax = 0
 breakdown = []
 
+multiplier = 2 if court_option == "2 Courts - Similar" else 1
+
 for cfg in court_configs:
     c_num = cfg["court_num"]
     s_h = cfg["start_hour"]
     dur = cfg["duration"]
     
-    # Track players per court
+    # Calculate pax count
     if cfg["include_drilling"]:
-        total_pax += cfg["drilling_pax"]
+        total_pax += (cfg["drilling_pax"] * multiplier)
     elif cfg["include_coaching"]:
-        total_pax += cfg["coaching_pax"]
+        total_pax += (cfg["coaching_pax"] * multiplier)
     else:
-        total_pax += cfg["regular_pax"]
+        total_pax += (cfg["regular_pax"] * multiplier)
 
-    # Calculate court time fee
+    # Calculate court hourly rates
     for h in range(dur):
         slot_dt = datetime.combine(selected_date, time(s_h + h, 0))
-        rate, category = get_hourly_rate(slot_dt)
-        court_fee += rate
+        rate_per_court, category = get_hourly_rate(slot_dt)
+        slot_total = rate_per_court * multiplier
+        court_fee += slot_total
         
         next_slot_str = "00:00" if (s_h + h + 1) == 24 else (slot_dt + timedelta(hours=1)).strftime('%H:%M')
-        court_label = f"Court {c_num} Fee" if num_courts > 1 else "Court Fee"
+        
+        if court_option == "2 Courts - Similar":
+            court_label = "Court Fee (2 Courts)"
+        elif court_option == "2 Courts - Different":
+            court_label = f"Court {c_num} Fee"
+        else:
+            court_label = "Court Fee"
         
         breakdown.append({
             "Item": f"{court_label} [{slot_dt.strftime('%H:%M')} – {next_slot_str}]",
             "Category": category,
-            "Rate": f"Rp{rate:,.0f}"
+            "Rate": f"Rp{slot_total:,.0f}"
         })
 
-    # Calculate per-court drilling fee
+    # Drilling Fee Calculation
     if cfg["include_drilling"]:
         pax = cfg["drilling_pax"]
         drilling_hourly_rate = DRILLING_MAP[pax]
-        c_drilling_fee = drilling_hourly_rate * dur
+        c_drilling_fee = drilling_hourly_rate * dur * multiplier
         total_drilling_fee += c_drilling_fee
         per_person_rate = drilling_hourly_rate / pax
 
-        item_label = f"Drilling Fee Court {c_num}" if num_courts > 1 else "Drilling Fee"
+        item_label = "Drilling Fee (2 Courts)" if court_option == "2 Courts - Similar" else (f"Drilling Fee Court {c_num}" if court_option == "2 Courts - Different" else "Drilling Fee")
         breakdown.append({
             "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
             "Category": f"Drilling ({pax} Pax @ Rp{per_person_rate:,.0f}/person/hr)",
             "Rate": f"Rp{c_drilling_fee:,.0f}"
         })
 
-    # Calculate per-court coaching fee
+    # Coaching Fee Calculation
     if cfg["include_coaching"]:
         pax = cfg["coaching_pax"]
         c_name = cfg["coach_name"]
         rate_per_pax_hr = COACHING_MAP[c_name][pax]
-        c_coaching_fee = rate_per_pax_hr * pax * dur
+        c_coaching_fee = rate_per_pax_hr * pax * dur * multiplier
         total_coaching_fee += c_coaching_fee
 
-        item_label = f"Coaching Fee Court {c_num}" if num_courts > 1 else "Coaching Fee"
+        item_label = "Coaching Fee (2 Courts)" if court_option == "2 Courts - Similar" else (f"Coaching Fee Court {c_num}" if court_option == "2 Courts - Different" else "Coaching Fee")
         breakdown.append({
             "Item": f"{item_label} ({dur} hr{'s' if dur > 1 else ''})",
             "Category": f"{c_name} ({pax} Pax @ Rp{rate_per_pax_hr:,.0f}/person/hr)",
@@ -370,20 +376,21 @@ st.divider()
 # --- SUMMARY & FEE DISPLAY ---
 st.markdown("### 📋 Booking Summary")
 st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
-st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Courts'}")
+st.write(f"🏟️ **Courts:** {court_option}")
 
 for cfg in court_configs:
-    prefix = f"Court {cfg['court_num']}" if num_courts > 1 else "Time"
+    prefix = f"Court {cfg['court_num']}" if court_option == "2 Courts - Different" else "Time"
     st.write(f"⏰ **{prefix}:** {cfg['start_str']} – {cfg['end_str']} ({cfg['duration']} hour{'s' if cfg['duration'] > 1 else ''})")
     if cfg["include_drilling"]:
-        dr_prefix = f"Court {cfg['court_num']} Drilling" if num_courts > 1 else "Drilling"
+        dr_prefix = f"Court {cfg['court_num']} Drilling" if court_option == "2 Courts - Different" else "Drilling"
         st.write(f"🎾 **{dr_prefix}:** Yes ({cfg['drilling_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
     elif cfg["include_coaching"]:
-        co_prefix = f"Court {cfg['court_num']} Coaching" if num_courts > 1 else "Coaching"
+        co_prefix = f"Court {cfg['court_num']} Coaching" if court_option == "2 Courts - Different" else "Coaching"
         st.write(f"🧢 **{co_prefix}:** {cfg['coach_name']} ({cfg['coaching_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
     else:
-        pax_prefix = f"Court {cfg['court_num']} Players" if num_courts > 1 else "Players"
-        st.write(f"👥 **{pax_prefix}:** {cfg['regular_pax']} Pax")
+        pax_prefix = f"Court {cfg['court_num']} Players" if court_option == "2 Courts - Different" else "Players"
+        pax_val = cfg['regular_pax'] * multiplier
+        st.write(f"👥 **{pax_prefix}:** {pax_val} Pax")
 
 # Breakdown Table
 st.table(breakdown)
