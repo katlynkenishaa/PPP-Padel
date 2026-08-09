@@ -56,7 +56,8 @@ def get_hourly_rate(booking_datetime):
             return 0, "Closed"
 
 # --- BASE RATE CARD DISPLAY ---
-with st.expander("📊 View Base Pricing Rate Card", expanded=True):
+with st.container(border=True):
+    st.markdown("📊 **View Base Pricing Rate Card**")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("**Weekdays**")
