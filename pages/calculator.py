@@ -21,10 +21,10 @@ WEEKEND_RATES = [
 ]
 
 DRILLING_RATES_LIST = [
-    {"Pax": "1 Pax", "Price": "Rp160,000"},
-    {"Pax": "2 Pax", "Price": "Rp190,000"},
-    {"Pax": "3 Pax", "Price": "Rp220,000"},
-    {"Pax": "4 Pax", "Price": "Rp250,000"},
+    {"Pax": "1 Pax", "Price / Hour": "Rp160,000", "Cost / Person / Hour": "Rp160,000"},
+    {"Pax": "2 Pax", "Price / Hour": "Rp190,000", "Cost / Person / Hour": "Rp95,000"},
+    {"Pax": "3 Pax", "Price / Hour": "Rp220,000", "Cost / Person / Hour": "Rp73,333"},
+    {"Pax": "4 Pax", "Price / Hour": "Rp250,000", "Cost / Person / Hour": "Rp62,500"},
 ]
 
 DRILLING_MAP = {1: 160000, 2: 190000, 3: 220000, 4: 250000}
@@ -58,7 +58,7 @@ def get_hourly_rate(booking_datetime):
 # --- BASE RATE CARD DISPLAY ---
 with st.container(border=True):
     st.markdown("📊 **View Base Pricing Rate Card**")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns([1, 1, 1.2])
     with col1:
         st.markdown("**Weekdays**")
         st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
@@ -154,7 +154,8 @@ if include_drilling:
         format_func=lambda x: f"{x} Pax",
         horizontal=True
     )
-    drilling_fee = DRILLING_MAP[drilling_pax]
+    drilling_hourly_rate = DRILLING_MAP[drilling_pax]
+    drilling_fee = drilling_hourly_rate * duration
 
 # --- CALCULATION ---
 court_fee = 0
@@ -177,8 +178,8 @@ for h in range(duration):
 
 if include_drilling:
     breakdown.append({
-        "Item": "Add-on Fee",
-        "Category": f"Drilling ({drilling_pax} Pax)",
+        "Item": f"Add-on Fee ({duration} hr{'s' if duration > 1 else ''})",
+        "Category": f"Drilling ({drilling_pax} Pax @ Rp{DRILLING_MAP[drilling_pax]:,.0f}/hr)",
         "Rate": f"Rp{drilling_fee:,.0f}"
     })
 
@@ -194,7 +195,7 @@ st.write(f"📅 **Date:** {selected_date.strftime('%A, %d %B %Y')}")
 st.write(f"🏟️ **Courts:** {num_courts} {'Court' if num_courts == 1 else 'Courts'}")
 st.write(f"⏰ **Time:** {start_time_str} – {display_end_time} ({duration} hour{'s' if duration > 1 else ''})")
 if include_drilling:
-    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax)")
+    st.write(f"🎾 **Drilling:** Yes ({drilling_pax} Pax for {duration} hr{'s' if duration > 1 else ''})")
 
 # Breakdown Table
 st.table(breakdown)
