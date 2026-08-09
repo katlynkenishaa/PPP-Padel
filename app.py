@@ -1,20 +1,31 @@
 import streamlit as st
+import pandas as pd
 from datetime import datetime, date, time, timedelta
 
 st.set_page_config(page_title="draft request menu PPP", page_icon="🎾")
 
 st.title("🎾 draft request menu PPP")
 
-# --- PRICING LOGIC ---
+# --- PRICING DATA & LOGIC ---
+WEEKDAY_RATES = [
+    {"Time Slot": "06:00 – 07:00", "Price / Court / Hour": "Rp150,000", "Category": "Non-Peak"},
+    {"Time Slot": "07:00 – 16:00", "Price / Court / Hour": "Rp210,000", "Category": "Morning"},
+    {"Time Slot": "16:00 – 22:00", "Price / Court / Hour": "Rp249,000", "Category": "Peak"},
+    {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp185,000", "Category": "Late Night"}
+]
+
+WEEKEND_RATES = [
+    {"Time Slot": "06:00 – 07:00", "Price / Court / Hour": "Rp178,000", "Category": "Early Morning"},
+    {"Time Slot": "07:00 – 22:00", "Price / Court / Hour": "Rp258,000", "Category": "All Day Weekend"},
+    {"Time Slot": "22:00 – 00:00", "Price / Court / Hour": "Rp199,000", "Category": "Late Night"}
+]
+
 def get_hourly_rate(booking_datetime):
-    """
-    Returns (price, category) for a single 1-hour slot starting at booking_datetime.
-    """
+    """Returns (price, category) for a single 1-hour slot starting at booking_datetime."""
     is_weekend = booking_datetime.weekday() in [5, 6]  # 5 = Saturday, 6 = Sunday
     hour = booking_datetime.hour
 
     if not is_weekend:
-        # Weekday Pricing
         if 6 <= hour < 7:
             return 150000, "Non-Peak"
         elif 7 <= hour < 16:
@@ -26,7 +37,6 @@ def get_hourly_rate(booking_datetime):
         else:
             return 0, "Closed"
     else:
-        # Weekend Pricing (Saturday & Sunday)
         if 6 <= hour < 7:
             return 178000, "Early Morning"
         elif 7 <= hour < 22:
@@ -35,6 +45,18 @@ def get_hourly_rate(booking_datetime):
             return 199000, "Late Night"
         else:
             return 0, "Closed"
+
+# --- BASE RATE CARD DISPLAY ---
+with st.expander("📊 View Base Pricing Rate Card", expanded=False):
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Weekdays**")
+        st.dataframe(pd.DataFrame(WEEKDAY_RATES), hide_index=True, use_container_width=True)
+    with col2:
+        st.markdown("**Weekend (Saturday & Sunday)**")
+        st.dataframe(pd.DataFrame(WEEKEND_RATES), hide_index=True, use_container_width=True)
+
+st.divider()
 
 # --- CALCULATOR INTERFACE ---
 st.subheader("🧮 Court Booking Fee Calculator")
@@ -46,12 +68,11 @@ selected_date = st.date_input("Select Date", value=date.today())
 time_options = [f"{hour:02d}:00" for hour in range(6, 24)]
 start_time_str = st.selectbox("Start Time", time_options)
 
-# 3. Play Duration (1 or 2 hours)
-duration = st.radio(
+# 3. Play Duration Dropdown (1 to 5 hours)
+duration = st.selectbox(
     "Play Duration", 
-    options=[1, 2], 
-    format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours", 
-    horizontal=True
+    options=[1, 2, 3, 4, 5], 
+    format_func=lambda x: f"{x} hour" if x == 1 else f"{x} hours"
 )
 
 # --- CALCULATION ---
@@ -70,8 +91,6 @@ for h in range(duration):
     })
 
 end_dt = datetime.combine(selected_date, time(start_hour, 0)) + timedelta(hours=duration)
-
-st.divider()
 
 # --- SUMMARY & FEE DISPLAY ---
 st.markdown("### 📋 Booking Summary")
