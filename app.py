@@ -1,14 +1,11 @@
 import streamlit as st
 
-st.set_page_config(
-    page_title="draft request menu PPP", 
-    page_icon="🎾", 
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="PPP Padel", page_icon="🎾")
 
-# Adding sidebar element forces Streamlit to render the navigation menu
-st.sidebar.title("Navigation")
-st.sidebar.info("Select a page above.")
+# Define pages pointing to your files in the pages/ folder
+calculator_page = st.Page("pages/calculator.py", title="Calculator", icon="🧮")
+promotions_page = st.Page("pages/promotions.py", title="Promotions", icon="🏷️")
 
-st.title("🎾 Welcome to draft request menu PPP")
-st.info("👈 Please select a tool from the sidebar menu on the left.")
+# Build navigation menu
+pg = st.navigation([calculator_page, promotions_page])
+pg.run()
