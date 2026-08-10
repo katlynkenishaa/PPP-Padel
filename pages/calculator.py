@@ -111,7 +111,6 @@ def get_end_str(start_h, dur):
     return "00:00" if end_h == 0 else f"{end_h:02d}:00"
 
 time_options = [f"{hour:02d}:00" for hour in range(0, 24)]
-# Full 24-hour end options without truncation
 end_time_options = [f"{hour:02d}:00" for hour in range(1, 24)] + ["00:00"]
 
 def compute_duration(start_str, end_str):
@@ -243,23 +242,6 @@ if court_option == "2 Courts - Same Time":
             coaching_assignments[1] = {"coach_name": c1_coach, "pax": c1_pax}
             coaching_assignments[2] = {"coach_name": c2_coach, "pax": c2_pax}
 
-    # Regular pax inputs for non-drilled or non-coached courts
-    reg_pax_c1 = 0
-    reg_pax_c2 = 0
-
-    if not c_drilling and not c_coaching:
-        reg_pax = st.radio("Number of Players per Court:", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_pax")
-        reg_pax_c1 = reg_pax
-        reg_pax_c2 = reg_pax
-    else:
-        c1_has_addon = (c_drilling and drill_court_target in ["Court 1 Only", "Both Courts"]) or (c_coaching and coach_court_target in ["Court 1 Only", "Both Courts"])
-        if not c1_has_addon:
-            reg_pax_c1 = st.radio("Number of Players on Court 1 (No Add-on):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_c1_pax")
-
-        c2_has_addon = (c_drilling and drill_court_target in ["Court 2 Only", "Both Courts"]) or (c_coaching and coach_court_target in ["Court 2 Only", "Both Courts"])
-        if not c2_has_addon:
-            reg_pax_c2 = st.radio("Number of Players on Court 2 (No Add-on):", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key="same_reg_c2_pax")
-
     start_h = int(st.session_state["c1_start_time"].split(":")[0])
     dur_val = st.session_state["c1_play_duration"]
     s_str = st.session_state["c1_start_time"]
@@ -276,7 +258,7 @@ if court_option == "2 Courts - Same Time":
         "include_coaching": c_coaching and (coach_court_target in ["Court 1 Only", "Both Courts"]),
         "coach_name": coaching_assignments.get(1, {}).get("coach_name", ""),
         "coaching_pax": coaching_assignments.get(1, {}).get("pax", 0),
-        "regular_pax": reg_pax_c1
+        "regular_pax": 0
     })
 
     court_configs.append({
@@ -290,7 +272,7 @@ if court_option == "2 Courts - Same Time":
         "include_coaching": c_coaching and (coach_court_target in ["Court 2 Only", "Both Courts"]),
         "coach_name": coaching_assignments.get(2, {}).get("coach_name", ""),
         "coaching_pax": coaching_assignments.get(2, {}).get("pax", 0),
-        "regular_pax": reg_pax_c2
+        "regular_pax": 0
     })
 
 else:
@@ -309,7 +291,6 @@ else:
         coach_key = f"c{c}_include_coaching"
         coach_name_key = f"c{c}_coach_name"
         coach_pax_key = f"c{c}_coaching_pax"
-        reg_pax_key = f"c{c}_regular_pax"
 
         if start_key not in st.session_state:
             st.session_state[start_key] = "17:00"
@@ -400,10 +381,6 @@ else:
             with coach_col2:
                 c_coach_pax = st.radio("Number of Pax for Coaching:", options=[1, 2, 3, 4], format_func=lambda x: f"{x} Pax", horizontal=True, key=coach_pax_key)
 
-        c_reg_pax = 0
-        if not c_drilling and not c_coaching:
-            c_reg_pax = st.radio("Number of Players on this Court:" if court_option == "2 Courts - Diff Time" else "Number of Players:", options=[1, 2, 3, 4, 5, 6, 7, 8], format_func=lambda x: f"{x} Pax", horizontal=True, key=reg_pax_key)
-
         court_configs.append({
             "court_num": c,
             "start_hour": int(st.session_state[start_key].split(":")[0]),
@@ -415,7 +392,7 @@ else:
             "include_coaching": c_coaching,
             "coach_name": c_coach_name,
             "coaching_pax": c_coach_pax,
-            "regular_pax": c_reg_pax
+            "regular_pax": 0
         })
 
 # --- CALCULATION ---
@@ -434,8 +411,6 @@ for cfg in court_configs:
         total_pax += cfg["drilling_pax"]
     elif cfg["include_coaching"]:
         total_pax += cfg["coaching_pax"]
-    else:
-        total_pax += cfg["regular_pax"]
 
     # Calculate court time fee across all hours
     for h in range(dur):
@@ -501,9 +476,6 @@ for cfg in court_configs:
     elif cfg["include_coaching"]:
         co_prefix = f"Court {cfg['court_num']} Coaching" if court_option != "1 Court" else "Coaching"
         st.write(f"🧢 **{co_prefix}:** {cfg['coach_name']} ({cfg['coaching_pax']} Pax for {cfg['duration']} hr{'s' if cfg['duration'] > 1 else ''})")
-    else:
-        pax_prefix = f"Court {cfg['court_num']} Players" if court_option != "1 Court" else "Players"
-        st.write(f"👥 **{pax_prefix}:** {cfg['regular_pax']} Pax")
 
 # Breakdown Table
 st.table(breakdown)
@@ -517,5 +489,5 @@ with left_col:
 with right_col:
     st.metric(
         label=f"Total Fee / Person ({total_pax} Total Pax)",
-        value=f"Rp{total_fee / total_pax:,.0f}" if total_pax > 0 else "Rp0"
+        value=f"Rp{total_fee / total_pax:,.0f}" if total_pax > 0 else "N/A"
     )
